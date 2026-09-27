@@ -4,6 +4,14 @@ const login = document.querySelector('#studio-login');
 const mfa = document.querySelector('#studio-mfa');
 const app = document.querySelector('#studio-app');
 const editor = document.querySelector('#studio-editor');
+let enrollPanel = document.querySelector('#studio-mfa-enroll');
+if (!enrollPanel) {
+  enrollPanel = document.createElement('section');
+  enrollPanel.id = 'studio-mfa-enroll'; enrollPanel.className = 'studio-login'; enrollPanel.hidden = true;
+  enrollPanel.innerHTML = '<h2>Secure your studio access</h2><p>Publishing and moderation require an authenticator. Shweta can enroll it with her own device.</p><button id="studio-mfa-start" class="button-primary" type="button">Set up authenticator</button><div id="studio-mfa-setup" hidden><p>Scan the code, then enter the six-digit code from the authenticator app.</p><img id="studio-mfa-qr" alt="Authenticator setup QR code" hidden style="width:200px;max-width:100%;background:#fff;padding:12px"><p>Manual setup key: <code id="studio-mfa-secret"></code></p><form id="studio-mfa-enroll-form" class="studio-login" hidden><label>Authenticator code<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label><button class="button-primary" type="submit">Verify authenticator</button></form></div>';
+  login.insertAdjacentElement('afterend', enrollPanel);
+}
+
 let client, currentUser, posts = [], comments = [], selectedState = 'all', pendingFactor;
 const message = (text, kind = 'info') => { notice.textContent = text; notice.dataset.kind = kind; notice.hidden = false; };
 const safe = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -38,8 +46,9 @@ async function authorizeOwner() {
       pendingFactor = { id: factor.id, challengeId: challenge.id };
       login.hidden = true; mfa.hidden = false; message('Enter the current six-digit code from Shweta’s authenticator app.');
       return;
-    }
-    message('Owner confirmed. MFA is not enrolled yet. Have the technical maintainer enable and enroll an authenticator factor before using publishing controls.', 'error');
+    }    const enrollPanel = document.querySelector('#studio-mfa-enroll');
+    if (enrollPanel) { login.hidden = true; enrollPanel.hidden = false; }
+    message('Before publishing, Shweta needs to enroll an authenticator on her own device.');
     return;
   }
   login.hidden = true; mfa.hidden = true; notice.hidden = true; app.hidden = false;
@@ -60,7 +69,30 @@ mfa?.addEventListener('submit', async event => {
   const { error } = await client.auth.mfa.verify({ factorId: pendingFactor.id, challengeId: pendingFactor.challengeId, code });
   if (error) { message('That code could not be verified. Try the latest code from the authenticator app.', 'error'); return; }
   await authorizeOwner();
+});document.querySelector('#studio-mfa-start')?.addEventListener('click', async () => {
+  message('Preparing authenticator setup…');
+  const { data, error } = await client.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'SHWETA publication studio' });
+  if (error) { message(error.message, 'error'); return; }
+  pendingFactor = { id: data.id };
+  document.querySelector('#studio-mfa-qr').src = data.totp.qr_code;
+  document.querySelector('#studio-mfa-secret').textContent = data.totp.secret;
+  document.querySelector('#studio-mfa-setup').hidden = false;
+  document.querySelector('#studio-mfa-qr').hidden = false;
+  document.querySelector('#studio-mfa-enroll-form').hidden = false;
+  document.querySelector('#studio-mfa-start').hidden = true;
+  message('Scan the QR code, then enter the current six-digit authenticator code.');
 });
+document.querySelector('#studio-mfa-enroll-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const code = new FormData(event.currentTarget).get('code');
+  const { data: challenge, error: challengeError } = await client.auth.mfa.challenge({ factorId: pendingFactor.id });
+  if (challengeError) { message(challengeError.message, 'error'); return; }
+  const { error } = await client.auth.mfa.verify({ factorId: pendingFactor.id, challengeId: challenge.id, code });
+  if (error) { message('That code could not be verified. Try the latest six-digit code.', 'error'); return; }
+  pendingFactor = undefined;
+  await authorizeOwner();
+});
+
 document.querySelector('#studio-signout')?.addEventListener('click', async () => { await client.auth.signOut(); location.reload(); });
 
 async function refresh() {
@@ -99,7 +131,7 @@ document.querySelector('#studio-posts')?.addEventListener('click',async event=>{
 async function mutatePost(id,changes){const {error}=await client.from('posts').update(changes).eq('id',id);if(error)message(error.message,'error');else await refresh();}
 document.querySelector('#studio-post-form')?.addEventListener('submit',async event=>{
   event.preventDefault();const f=new FormData(event.currentTarget),id=f.get('id');
-  const record={title:f.get('title').trim(),subtitle:f.get('subtitle').trim(),post_type:f.get('post_type'),body:f.get('body'),tags:f.get('tags').split(',').map(s=>s.trim()).filter(Boolean),sources:f.get('sources').split('\n').map(s=>s.trim()).filter(Boolean).map(url=>({url})),status:f.get('status'),scheduled_at:f.get('status')==='scheduled'?new Date(f.get('scheduled_at')).toISOString():null};
+  const record={slug:(posts.find(p=>p.id===id)?.slug)||(f.get('title').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'-'+Date.now().toString(36)),title:f.get('title').trim(),subtitle:f.get('subtitle').trim(),post_type:f.get('post_type'),body:f.get('body'),tags:f.get('tags').split(',').map(s=>s.trim()).filter(Boolean),sources:f.get('sources').split('\n').map(s=>s.trim()).filter(Boolean).map(url=>({url})),status:f.get('status'),scheduled_at:f.get('status')==='scheduled'?new Date(f.get('scheduled_at')).toISOString():null};
   if(record.status==='scheduled'&&(!f.get('scheduled_at')||new Date(record.scheduled_at)<=new Date())){message('Choose a future date and time for a scheduled post.','error');return;}
   const result=id?await client.from('posts').update(record).eq('id',id):await client.from('posts').insert(record);
   if(result.error){message(`Could not save this post: ${result.error.message}`,'error');return;} editor.hidden=true;message('Post saved.','success');await refresh();
