@@ -3,6 +3,13 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const openDialog = selector => { const dialog = $(selector); if (dialog && !dialog.open) dialog.showModal(); };
   const closeDialog = button => button.closest('dialog')?.close();
+  const loadPublicPublisher = () => {
+    const start = () => { const runtime = document.createElement('script'); runtime.src = '/public-content.js'; document.head.appendChild(runtime); };
+    if (window.SHWETA_STUDIO_CONFIG) start();
+    else { const settings = document.createElement('script'); settings.src = '/studio-config.js'; settings.onload = start; document.head.appendChild(settings); }
+  };
+  loadPublicPublisher();
+
 
   const menuButton = $('.menu-toggle');
   const nav = $('.main-nav');
