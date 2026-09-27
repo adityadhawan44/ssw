@@ -1,0 +1,138 @@
+[
+  {
+    "id": "article:shape-of-freedom",
+    "kind": "Article",
+    "title": "The shape of freedom",
+    "summary": "Can a woman be legally independent without being financially independent? Rights on paper are only part of the story. This essay looks at the relationship between financial agency and the freedom to make a life on your own terms.",
+    "topic": "Society independence women's rights society",
+    "url": "/journal/shape-of-freedom"
+  },
+  {
+    "id": "article:stridhan-explained",
+    "kind": "Article",
+    "title": "Stridhan, explained",
+    "summary": "What belongs to you—and why the distinction matters. A plain-language starting point for understanding stridhan in Indian law, the Supreme Court's recognition of a woman's ownership, and why facts and documentation matter.",
+    "topic": "Women's rights property marriage & family women's rights",
+    "url": "/journal/stridhan-explained"
+  },
+  {
+    "id": "article:workplace-harassment-law",
+    "kind": "Article",
+    "title": "The workplace harassment law, in plain language",
+    "summary": "A guide to the Indian framework for prevention, prohibition and redressal. The POSH Act creates duties for workplaces and a process for complaints of sexual harassment. This guide maps the main parts of that framework without replacing the statute or professional advice.",
+    "topic": "Law workplace POSH women's rights",
+    "url": "/journal/workplace-harassment-law"
+  },
+  {
+    "id": "perspective:independence-is-not-a-single-moment",
+    "kind": "Perspective",
+    "title": "Independence is not a single moment",
+    "summary": "On the small, everyday choices that make autonomy real. A personal essay on autonomy as a practice shaped by ordinary decisions, relationships and the room people are given to change their minds.",
+    "topic": "Perspective independence society culture",
+    "url": "/perspective/independence-is-not-a-single-moment"
+  },
+  {
+    "id": "case:vishaka-v-state-of-rajasthan",
+    "kind": "Case",
+    "title": "Vishaka v. State of Rajasthan",
+    "summary": "How should workplace sexual harassment be addressed when there is no specific domestic legislation? The Supreme Court treated workplace sexual harassment as a violation of constitutional guarantees and issued guidelines for workplaces pending legislation. Parliament later enacted the 2013 POSH Act.",
+    "topic": "Workplace · Equality · Women's rights",
+    "url": "/casebook/vishaka-v-state-of-rajasthan"
+  },
+  {
+    "id": "case:pratibha-rani-v-suraj-kumar",
+    "kind": "Case",
+    "title": "Pratibha Rani v. Suraj Kumar",
+    "summary": "Can allegations about a married woman's stridhan raise a criminal breach of trust issue? The Supreme Court held that the complaint could proceed. It recognized that a woman's stridhan is her property and that entrustment and dishonest misappropriation may be relevant to a criminal breach of trust allegation, subject to proof and the applicable law.",
+    "topic": "Criminal law · Marriage · Property",
+    "url": "/casebook/pratibha-rani-v-suraj-kumar"
+  },
+  {
+    "id": "case:vineeta-sharma-v-rakesh-sharma",
+    "kind": "Case",
+    "title": "Vineeta Sharma v. Rakesh Sharma",
+    "summary": "How does the 2005 amendment to section 6 of the Hindu Succession Act affect daughters' coparcenary rights? The Court held that the amended section 6 confers coparcenary status on a daughter by birth, in the same manner as a son, with the same rights and liabilities. It also held that the father's being alive on 9 September 2005 is not a requirement. Statutory limits and prior transactions still matter.",
+    "topic": "Family law · Inheritance · Equality",
+    "url": "/casebook/vineeta-sharma-v-rakesh-sharma"
+  },
+  {
+    "id": "rights:marriage-family",
+    "kind": "Rights guide",
+    "title": "Marriage & family",
+    "summary": "Understand common legal questions about marriage, family relationships and personal property. Stridhan and personal property Maintenance Divorce and separation Custody and guardianship Domestic violence protections",
+    "topic": "Marriage & family Stridhan and personal property Maintenance Divorce and separation Custody and guardianship Domestic violence protections",
+    "url": "/rights/marriage-family"
+  },
+  {
+    "id": "rights:workplace",
+    "kind": "Rights guide",
+    "title": "Workplace",
+    "summary": "Explore the legal framework around safety, equality and the terms of work in India. POSH and workplace harassment Maternity benefits Discrimination and equality Employment contracts Internal and Local Committees",
+    "topic": "Workplace POSH and workplace harassment Maternity benefits Discrimination and equality Employment contracts Internal and Local Committees",
+    "url": "/rights/workplace"
+  },
+  {
+    "id": "rights:money-property",
+    "kind": "Rights guide",
+    "title": "Money & property",
+    "summary": "Start with ownership, inheritance and the documents that help make rights visible. Stridhan Inheritance and succession Property records Financial agreements Daughters' coparcenary rights",
+    "topic": "Money & property Stridhan Inheritance and succession Property records Financial agreements Daughters' coparcenary rights",
+    "url": "/rights/money-property"
+  },
+  {
+    "id": "rights:online-safety",
+    "kind": "Rights guide",
+    "title": "Online safety",
+    "summary": "A starting point for privacy, harassment and safety in digital spaces. Cyberstalking and online harassment Privacy and personal data Image-based abuse Identity theft Preserving digital evidence",
+    "topic": "Online safety Cyberstalking and online harassment Privacy and personal data Image-based abuse Identity theft Preserving digital evidence",
+    "url": "/rights/online-safety"
+  },
+  {
+    "id": "rights:education",
+    "kind": "Rights guide",
+    "title": "Education",
+    "summary": "Explore questions of access, safety and equal opportunity in education. Equal access Campus safety Anti-discrimination processes Scholarship terms Complaints and grievance channels",
+    "topic": "Education Equal access Campus safety Anti-discrimination processes Scholarship terms Complaints and grievance channels",
+    "url": "/rights/education"
+  },
+  {
+    "id": "rights:business",
+    "kind": "Rights guide",
+    "title": "Business & work",
+    "summary": "A practical orientation to contracts, business relationships and professional rights. Reading a contract Workplace policies Starting a business Payment and invoices Fair and safe workplaces",
+    "topic": "Business & work Reading a contract Workplace policies Starting a business Payment and invoices Fair and safe workplaces",
+    "url": "/rights/business"
+  },
+  {
+    "id": "research:workplace-rights-guide",
+    "kind": "Research",
+    "title": "Women's rights in the workplace",
+    "summary": "A research guide to the Indian framework for safety, equality and redressal. An editorial outline for a future, fully sourced guide. The current preview maps major statutes and themes; it is not legal advice or a complete research report.",
+    "topic": "Research Legal guide",
+    "url": "/research/workplace-rights-guide"
+  },
+  {
+    "id": "research:property-case-compilation",
+    "kind": "Research",
+    "title": "Women, property and the courts",
+    "summary": "A curated starting collection of judgments and commentary. A growing collection connecting leading Supreme Court decisions on personal property, succession and equality.",
+    "topic": "Research Case compilation",
+    "url": "/research/property-case-compilation"
+  },
+  {
+    "id": "research:research-method",
+    "kind": "Research",
+    "title": "How we read a judgment",
+    "summary": "A short note on method, context and sources. A clear case analysis distinguishes the facts, legal questions, reasoning, decision and later legal developments. It starts with the judgment and keeps citations visible.",
+    "topic": "Research Research note",
+    "url": "/research/research-method"
+  },
+  {
+    "id": "brief:brief-001",
+    "kind": "The Brief",
+    "title": "One case. One clear explanation.",
+    "summary": "The first issue introduces the Shweta Brief: a considered note on an important judgment, a legal development and what it means. Vishaka v. State of Rajasthan and the origins of workplace safeguards. The POSH Act, 2013 is the current statutory framework. Historical context matters. Start with the current statute when looking for today's process.",
+    "topic": "Newsletter The Brief",
+    "url": "/the-brief/brief-001"
+  }
+]

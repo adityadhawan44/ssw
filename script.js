@@ -1,0 +1,115 @@
+(() => {
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const openDialog = selector => { const dialog = $(selector); if (dialog && !dialog.open) dialog.showModal(); };
+  const closeDialog = button => button.closest('dialog')?.close();
+
+  const menuButton = $('.menu-toggle');
+  const nav = $('.main-nav');
+  menuButton?.addEventListener('click', () => {
+    const open = menuButton.getAttribute('aria-expanded') !== 'true';
+    menuButton.setAttribute('aria-expanded', String(open));
+    nav?.classList.toggle('open', open);
+  });
+  $$('.main-nav a').forEach(a => a.addEventListener('click', () => {
+    nav?.classList.remove('open'); menuButton?.setAttribute('aria-expanded', 'false');
+  }));
+
+  $$('.search-open').forEach(button => button.addEventListener('click', () => {
+    openDialog('.search-dialog'); setTimeout(() => $('#site-search')?.focus(), 40);
+  }));
+  $$('.saved-open').forEach(button => button.addEventListener('click', () => { renderSaved(); openDialog('.saved-dialog'); }));
+  $$('.reader-open').forEach(button => button.addEventListener('click', () => openDialog('.preferences-dialog')));
+  $$('.overlay-close').forEach(button => button.addEventListener('click', () => closeDialog(button)));
+  $$('.overlay').forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));
+
+  const getSaved = () => { try { return JSON.parse(localStorage.getItem('shweta-saved') || '[]'); } catch { return []; } };
+  const setSaved = items => localStorage.setItem('shweta-saved', JSON.stringify(items));
+  let indexPromise;
+  const getIndex = () => indexPromise ||= fetch('/search-index.json').then(response => response.ok ? response.json() : []).catch(() => []);
+  const updateSavedControls = () => {
+    const saved = getSaved();
+    $$('.saved-count').forEach(node => node.textContent = String(saved.length));
+    $$('[data-save]').forEach(button => {
+      const active = saved.includes(button.dataset.save);
+      button.classList.toggle('is-saved', active);
+      if (button.textContent.trim().startsWith('♡') || button.textContent.trim().startsWith('♥')) {
+        button.innerHTML = active ? '♥' : '♡';
+      }
+      button.setAttribute('aria-pressed', String(active));
+    });
+  };
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-save]');
+    if (!button) return;
+    const saved = getSaved(), id = button.dataset.save;
+    setSaved(saved.includes(id) ? saved.filter(item => item !== id) : [...saved, id]);
+    updateSavedControls();
+    if ($('.saved-dialog')?.open) renderSaved();
+  });
+  async function renderSaved() {
+    const root = $('.saved-results'); if (!root) return;
+    const saved = getSaved(), items = await getIndex();
+    const selected = saved.map(id => items.find(item => item.id === id)).filter(Boolean);
+    root.innerHTML = selected.length ? selected.map(item => `<a href="${item.url}"><span>${item.kind.toUpperCase()}</span><strong>${escapeHtml(item.title)}</strong></a>`).join('') : '<p class="muted">Nothing saved yet. Use the ♡ on an article, case or research preview to keep it here.</p>';
+  }
+  function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
+  updateSavedControls();
+
+  const searchInput = $('#site-search');
+  let searchTimer;
+  async function runSearch() {
+    if (!searchInput) return;
+    const query = searchInput.value.trim().toLowerCase(), type = $('#search-type')?.value || 'all', topic = $('#search-topic')?.value || 'all';
+    const root = $('.search-results'); if (!root) return;
+    const items = await getIndex();
+    if (!query) { root.innerHTML = '<p class="muted">Search across articles, judgments, guides and research.</p>'; return; }
+    const found = items.filter(item => (type === 'all' || item.kind.toLowerCase() === type.toLowerCase()) && (topic === 'all' || item.topic.toLowerCase().includes(topic.toLowerCase())) && `${item.title} ${item.summary} ${item.topic}`.toLowerCase().includes(query));
+    if (!found.length) { root.innerHTML = '<p class="muted">No matching pieces yet. Try a broader word or browse the Journal and Casebook.</p>'; return; }
+    const groups = [...new Set(found.map(item => item.kind))];
+    root.innerHTML = groups.map(group => `<p class="result-group-title">${escapeHtml(group.toUpperCase())} · ${found.filter(item => item.kind === group).length}</p>${found.filter(item => item.kind === group).map(item => `<a class="search-result" href="${item.url}"><span>${escapeHtml(item.topic)}</span><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary)}</span></a>`).join('')}`).join('');
+  }
+  searchInput?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 100); });
+  $('#search-type')?.addEventListener('change', runSearch); $('#search-topic')?.addEventListener('change', runSearch);
+
+  $$('.filter-button').forEach(button => button.addEventListener('click', () => {
+    const group = button.closest('.archive-section') || document;
+    $$('.filter-button', group).forEach(item => item.classList.remove('is-active'));
+    button.classList.add('is-active');
+    const wanted = button.dataset.filter;
+    $$('[data-item]', group).forEach(item => {
+      const categories = (item.dataset.category || '').toLowerCase();
+      item.hidden = wanted !== 'all' && !categories.includes(wanted);
+    });
+  }));
+
+  const prefs = (() => { try { return JSON.parse(localStorage.getItem('shweta-reading') || '{}'); } catch { return {}; } })();
+  function applyPreference(name, value) {
+    const body = document.body;
+    if (name === 'font') body.dataset.font = value;
+    if (name === 'width') body.dataset.width = value;
+    if (name === 'theme') {
+      if (value === 'light') delete body.dataset.theme; else body.dataset.theme = value;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', value === 'dark' ? '#20231f' : '#f6f4ef');
+    }
+    prefs[name] = value; localStorage.setItem('shweta-reading', JSON.stringify(prefs));
+    $$(`[data-${name}]`, $('.preferences-dialog') || document).forEach(btn => btn.classList.toggle('is-active', btn.dataset[name] === value));
+  }
+  Object.entries(prefs).forEach(([name, value]) => applyPreference(name, value));
+  $$('.preferences-dialog [data-font],.preferences-dialog [data-width],.preferences-dialog [data-theme]').forEach(button => {
+    const key = button.hasAttribute('data-font') ? 'font' : button.hasAttribute('data-width') ? 'width' : 'theme';
+    button.addEventListener('click', () => applyPreference(key, button.dataset[key]));
+  });
+
+  const progress = $('#reading-progress');
+  if (progress && $('[data-reading]')) {
+    const update = () => {
+      const range = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.width = `${range > 0 ? Math.min(100, Math.max(0, window.scrollY / range * 100)) : 0}%`;
+    };
+    window.addEventListener('scroll', update, { passive: true }); window.addEventListener('resize', update); update();
+  }
+  document.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openDialog('.search-dialog'); setTimeout(() => searchInput?.focus(), 40); }
+  });
+})();
