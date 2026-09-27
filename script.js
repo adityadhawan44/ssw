@@ -3,13 +3,6 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const openDialog = selector => { const dialog = $(selector); if (dialog && !dialog.open) dialog.showModal(); };
   const closeDialog = button => button.closest('dialog')?.close();
-  const loadPublicPublisher = () => {
-    const start = () => { const runtime = document.createElement('script'); runtime.src = '/public-content.js'; document.head.appendChild(runtime); };
-    if (window.SHWETA_STUDIO_CONFIG) start();
-    else { const settings = document.createElement('script'); settings.src = '/studio-config.js'; settings.onload = start; document.head.appendChild(settings); }
-  };
-  loadPublicPublisher();
-
 
   const menuButton = $('.menu-toggle');
   const nav = $('.main-nav');
@@ -33,7 +26,7 @@
   const getSaved = () => { try { return JSON.parse(localStorage.getItem('shweta-saved') || '[]'); } catch { return []; } };
   const setSaved = items => localStorage.setItem('shweta-saved', JSON.stringify(items));
   let indexPromise;
-  const getIndex = () => indexPromise ||= fetch('/search-index.json').then(response => response.ok ? response.json() : []).catch(() => []);
+  const getIndex = () => indexPromise ||= Promise.all([fetch('/search-index.json').then(response => response.ok ? response.json() : []).catch(() => []), window.SHWETA_PUBLIC_SEARCH_ITEMS || Promise.resolve([])]).then(([staticItems,publishedItems]) => [...staticItems,...publishedItems]);
   const updateSavedControls = () => {
     const saved = getSaved();
     $$('.saved-count').forEach(node => node.textContent = String(saved.length));
@@ -119,4 +112,50 @@
   document.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openDialog('.search-dialog'); setTimeout(() => searchInput?.focus(), 40); }
   });
+
+  // Reader wall: let visitors see the opening preview, then ask them to sign in.
+  // This is a front-end reading experience; static HTML still needs server-side
+  // protection before it can be treated as a true access-control boundary.
+  const path = location.pathname.replace(/\/$/, '') || '/';
+  if (!['/sign-in', '/studio', '/404'].includes(path)) {
+    const returnTo = `${location.pathname}${location.search}${location.hash}`;
+    Promise.resolve(window.SHWETA_PUBLIC_CONTENT_READY).catch(() => []).then(async () => {
+      const db = window.SHWETA_PUBLIC_DB;
+      if (!db) return;
+      let { data: { user } = {} } = await db.auth.getUser();
+      const accountLink = document.createElement('a');
+      accountLink.className = 'reader-account-link';
+      accountLink.href = `/sign-in?next=${encodeURIComponent(returnTo)}`;
+      accountLink.textContent = user ? 'Reader account' : 'Reader sign in';
+      $('.header-tools')?.prepend(accountLink);
+      if (user) return;
+
+      const gate = document.createElement('aside');
+      gate.className = 'reader-wall';
+      gate.setAttribute('role', 'dialog');
+      gate.setAttribute('aria-modal', 'true');
+      gate.setAttribute('aria-labelledby', 'reader-wall-title');
+      gate.innerHTML = `<div class="reader-wall-card"><p class="eyebrow">SHWETA · READER ACCESS</p><h2 id="reader-wall-title">Stay for the full thought.</h2><p>Sign in or create a free reader account to continue with the complete article, case analysis and rights guides.</p><a class="button-primary" href="/sign-in?next=${encodeURIComponent(returnTo)}">Sign in to continue</a><p class="reader-wall-note">Your account is handled securely by Supabase. Your password is never saved as readable text.</p><button class="reader-wall-top" type="button">Return to the beginning</button></div>`;
+      document.body.append(gate);
+      const activate = () => {
+        if (document.body.classList.contains('reader-wall-active')) return;
+        document.body.classList.add('reader-wall-active');
+        document.querySelector('main')?.setAttribute('inert', '');
+        gate.querySelector('a')?.focus({ preventScroll: true });
+      };
+      const deactivate = () => {
+        document.body.classList.remove('reader-wall-active');
+        document.querySelector('main')?.removeAttribute('inert');
+      };
+      gate.querySelector('.reader-wall-top')?.addEventListener('click', () => {
+        deactivate(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      const checkPosition = () => { if (window.scrollY > 300) activate(); };
+      window.addEventListener('scroll', checkPosition, { passive: true });\n      checkPosition();
+      db.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) { user = session.user; deactivate(); }
+        else if (user) { user = null; checkPosition(); }
+      });
+    }).catch(() => {});
+  }
 })();
