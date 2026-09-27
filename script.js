@@ -119,8 +119,8 @@
   const path = location.pathname.replace(/\/$/, '') || '/';
   if (!['/sign-in', '/studio', '/404'].includes(path)) {
     const returnTo = `${location.pathname}${location.search}${location.hash}`;
-    Promise.resolve(window.SHWETA_PUBLIC_CONTENT_READY).catch(() => []).then(async () => {
-      const db = window.SHWETA_PUBLIC_DB;
+    Promise.resolve(window.SHWETA_PUBLIC_DB_READY || window.SHWETA_PUBLIC_CONTENT_READY).catch(() => null).then(async resolvedDb => {
+      const db = resolvedDb || window.SHWETA_PUBLIC_DB;
       if (!db) return;
       let { data: { user } = {} } = await db.auth.getUser();
       const accountLink = document.createElement('a');

@@ -22,6 +22,7 @@
       </section>
     </div><p class="fine-print signin-back"><a href="/">← Back to SHWETA</a></p>
   </main>
+  <script src="/public-content.js"></script>
   <script type="module">
     const config=window.SHWETA_STUDIO_CONFIG||{};
     const form=document.querySelector('#reader-signin'),message=document.querySelector('#reader-message'),session=document.querySelector('.signin-session');
@@ -35,7 +36,7 @@
     function setMode(value){mode=value;submit.textContent=mode==='signup'?'Create reader account':'Sign in';form.querySelector('[name=password]').autocomplete=mode==='signup'?'new-password':'current-password';modeToggle.textContent=mode==='signup'?'Already have an account? Sign in':'New to SHWETA? Create a reader account';if(mode==='signup')say('Your password is managed by Supabase and is never shown to SHWETA.');else message.hidden=true;}
     if(!config.supabaseUrl||!config.supabaseAnonKey){say('Reader sign-in is temporarily unavailable. Please try again later.',true);form.hidden=true;googleButton.hidden=true;modeToggle.hidden=true;}
     else{try{
-      const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2');db=createClient(config.supabaseUrl,config.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});await sync();
+      db=await window.SHWETA_PUBLIC_DB_READY;if(!db)throw new Error('Reader sign-in is temporarily unavailable. Please try again later.');await sync();
       const {data:{user}}=await db.auth.getUser();if(user){goNext();}
       modeToggle.addEventListener('click',()=>setMode(mode==='signin'?'signup':'signin'));
       form.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity())return;const values=new FormData(form),email=String(values.get('email')).trim(),password=String(values.get('password'));submit.disabled=true;googleButton.disabled=true;modeToggle.disabled=true;say(mode==='signup'?'Creating your reader account…':'Signing you in…');
