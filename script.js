@@ -141,17 +141,20 @@
         if (document.body.classList.contains('reader-wall-active')) return;
         document.body.classList.add('reader-wall-active');
         document.querySelector('main')?.setAttribute('inert', '');
+        document.querySelector('.site-header')?.setAttribute('inert', '');
         gate.querySelector('a')?.focus({ preventScroll: true });
       };
       const deactivate = () => {
         document.body.classList.remove('reader-wall-active');
         document.querySelector('main')?.removeAttribute('inert');
+        document.querySelector('.site-header')?.removeAttribute('inert');
       };
       gate.querySelector('.reader-wall-top')?.addEventListener('click', () => {
         deactivate(); window.scrollTo({ top: 0, behavior: 'smooth' });
       });
       const checkPosition = () => { if (window.scrollY > 300) activate(); };
-      window.addEventListener('scroll', checkPosition, { passive: true });\n      checkPosition();
+      window.addEventListener('scroll', checkPosition, { passive: true });
+      checkPosition();
       db.auth.onAuthStateChange((_event, session) => {
         if (session?.user) { user = session.user; deactivate(); }
         else if (user) { user = null; checkPosition(); }
