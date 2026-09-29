@@ -37,7 +37,7 @@
     if(!config.supabaseUrl||!config.supabaseAnonKey){say('Reader sign-in is temporarily unavailable. Please try again later.',true);form.hidden=true;googleButton.hidden=true;modeToggle.hidden=true;}
     else{try{
       db=await window.SHWETA_PUBLIC_DB_READY;if(!db)throw new Error('Reader sign-in is temporarily unavailable. Please try again later.');await sync();
-      const {data:{user}}=await db.auth.getUser();if(user){goNext();}
+      const {data:{user}}=await db.auth.getUser();if(user&&(query.has('code')||location.hash.includes('access_token')))goNext();
       modeToggle.addEventListener('click',()=>setMode(mode==='signin'?'signup':'signin'));
       form.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity())return;const values=new FormData(form),email=String(values.get('email')).trim(),password=String(values.get('password'));submit.disabled=true;googleButton.disabled=true;modeToggle.disabled=true;say(mode==='signup'?'Creating your reader account…':'Signing you in…');
         try{if(mode==='signup'){const {data,error}=await db.auth.signUp({email,password,options:{emailRedirectTo:`${location.origin}/sign-in?next=${encodeURIComponent(next)}`}});if(error)throw error;if(data.session){say('Your account is ready. Opening your reading…');goNext();}else{form.reset();say('Check your email to verify your reader account, then sign in here.');}}
@@ -50,3 +50,4 @@
   </script>
   <footer class="site-footer"><div class="footer-main"><a class="wordmark" href="/">SHWETA<span>.</span></a><p>Law · Rights · Independent Thought</p></div><div class="footer-bottom"><span>© 2026 SHWETA · ALL RIGHTS RESERVED</span><span>GENERAL INFORMATION ONLY · NOT LEGAL ADVICE</span></div></footer>
 </body></html>
+
