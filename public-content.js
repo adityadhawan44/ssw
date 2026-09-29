@@ -66,7 +66,18 @@
     }
     if (path==='/' && posts.length) {
       const container=document.querySelector('.home-index');
-      if(container) container.insertAdjacentHTML('beforeend',posts.slice(0,4).map((post,i)=>`<a class="index-row" href="${routeFor(post)}"><span>${String(i+5).padStart(2,'0')}</span><small>${esc(kindFor(post.post_type).toUpperCase())}</small><strong>${esc(post.title)}</strong><i>↗</i></a>`).join(''));
+      if(container){
+        const featured=posts.find(post=>post.featured);
+        const knownTitles=new Set([...container.querySelectorAll('.index-row strong')].map(node=>node.textContent.trim()));
+        if(featured){
+          const first=container.querySelector('.index-row');
+          const existing=[...container.querySelectorAll('.index-row')].find(row=>row.querySelector('strong')?.textContent.trim()===featured.title);
+          if(existing){existing.dataset.cmsFeatured='';existing.href=routeFor(featured);const small=existing.querySelector('small');if(small)small.textContent=`${kindFor(featured.post_type).toUpperCase()} · FEATURED`;if(first&&existing!==first)container.insertBefore(existing,first);}
+          else {const row=`<a class="index-row" data-cms-featured href="${routeFor(featured)}"><span>01</span><small>${esc(kindFor(featured.post_type).toUpperCase())} · FEATURED</small><strong>${esc(featured.title)}</strong><i>↗</i></a>`;if(first)first.insertAdjacentHTML('beforebegin',row);else container.insertAdjacentHTML('beforeend',row);}
+        }
+        const latest=posts.filter(post=>post.id!==featured?.id).slice(0,4);
+        container.insertAdjacentHTML('beforeend',latest.map((post,i)=>`<a class="index-row" href="${routeFor(post)}"><span>${String(i+5).padStart(2,'0')}</span><small>${esc(kindFor(post.post_type).toUpperCase())}</small><strong>${esc(post.title)}</strong><i>↗</i></a>`).join(''));
+      }
     }
   });
 
