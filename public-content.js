@@ -3,7 +3,7 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective'}[type] || 'Article');
   const routeFor = post => `/post?slug=${encodeURIComponent(post.slug)}`;
-  const summaryFor = post => post.subtitle || (post.body || '').replace(/\s+/g,' ').slice(0,180);
+  const summaryFor = post => post.subtitle || '';
   const publicDbPromise = (async () => {
     if (!config.supabaseUrl || !config.supabaseAnonKey) return null;
     try {
@@ -21,7 +21,11 @@
     const db = await publicDbPromise;
     if (!db) return [];
     try {
-      const { data, error } = await db.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at').eq('status','published').order('published_at',{ascending:false}).limit(100);
+      const { data: { user } } = await db.auth.getUser();
+      const result = user
+        ? await db.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at').eq('status','published').order('published_at',{ascending:false}).limit(100)
+        : await db.rpc('get_public_post_teasers');
+      const { data, error } = result;
       if (error) throw error;
       window.SHWETA_PUBLISHED_POSTS = data || [];
       return data || [];
@@ -60,9 +64,14 @@
     const root=document.querySelector('#published-post');
     if(!root) return;
     const slug=new URLSearchParams(location.search).get('slug');
-    if(!slug) { root.innerHTML='<p class="muted">This publication could not be found.</p>'; return; }
-    const posts=await livePostsPromise, post=posts.find(item=>item.slug===slug);
-    if(!post) { root.innerHTML='<p class="muted">This publication is unavailable or is no longer published.</p>'; return; }
+    if(!slug) { root.innerHTML='<p class="muted">This publication could not be found.</p>'; return; }    const posts=await livePostsPromise; let post=posts.find(item=>item.slug===slug);    if(!post) { root.innerHTML='<p class="muted">This publication is unavailable or is no longer published.</p>'; return; }
+    const { data: { user: reader } } = await window.SHWETA_PUBLIC_DB.auth.getUser();
+    if(!reader) {
+      const signInUrl='/sign-in?next='+encodeURIComponent(location.pathname+location.search);
+      root.innerHTML='<article class="reader-access-card wrap"><p class="eyebrow">A MORE PERSONAL READING EXPERIENCE</p><h1>'+esc(post.title)+'</h1><p class="reading-deck">Create a free reader account or sign in to continue reading this publication.</p><a class="button-primary" href="'+signInUrl+'">Sign in or create a free account</a><p class="fine-print">Your account unlocks the full library of SHWETA publications.</p></article>';
+      document.title=post.title+' · SHWETA';
+      return;
+    }
     const safeSources=(post.sources||[]).map(source=>typeof source==='string'?{url:source,label:source}:{url:source.url,label:source.label||source.url}).filter(source=>/^https?:\/\//i.test(source.url||''));
     const paragraphs=(post.body||'').split(/\n\s*\n/).filter(Boolean).map(text=>`<p>${esc(text).replace(/\n/g,'<br>')}</p>`).join('');
     root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle)}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}<button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save this piece">♡ Save</button></div></header><div class="article-body"><div class="published-copy">${paragraphs}</div><aside class="legal-note"><strong>Information, not legal advice.</strong> This publication is educational and does not establish a lawyer–client relationship. Check current law and primary sources before relying on it.</aside>${safeSources.length?`<section class="sources"><p class="eyebrow">SOURCES & FURTHER READING</p><ul>${safeSources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.label)} ↗</a></li>`).join('')}</ul></section>`:''}<section class="reader-interactions" aria-label="Reader responses"><h2>Join the conversation</h2><p class="fine-print">Please do not post private case details or sensitive personal information. Comments are reviewed before they appear.</p><div class="reader-auth"></div><div class="reader-actions" hidden><button type="button" class="button-primary" id="reader-like">Like</button><button type="button" class="tool-button" id="reader-bookmark">Save to my account</button><button type="button" class="tool-button" id="reader-signout">Sign out</button></div><p class="reader-status" role="status"></p><form class="reader-comment-form" hidden><label for="reader-comment">Add a comment</label><textarea id="reader-comment" maxlength="4000" required rows="4"></textarea><button class="button-primary" type="submit">Submit for review</button></form><div class="reader-comments"><h3>Approved comments</h3><div class="reader-comment-list"></div></div></section></div></article>`;
