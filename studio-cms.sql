@@ -5,6 +5,7 @@ begin;
 
 alter table public.posts add column if not exists author_id uuid;
 alter table public.posts add column if not exists author_name text not null default 'Shweta';
+alter table public.posts add column if not exists structured_data jsonb not null default '{}'::jsonb;
 alter table public.posts add column if not exists seo_title text not null default '';
 alter table public.posts add column if not exists seo_description text not null default '';
 alter table public.posts add column if not exists canonical_url text not null default '';
@@ -95,6 +96,31 @@ create table if not exists public.studio_settings (
   updated_at timestamptz not null default now()
 );
 
+insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
+values ('shweta-studio-private-media','SHWETA Studio Private Media',false,26214400,
+  array['image/jpeg','image/png','image/webp','image/gif','application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+on conflict (id) do nothing;
+
+drop policy if exists shweta_studio_media_owner_read on storage.objects;
+create policy shweta_studio_media_owner_read on storage.objects
+  for select to authenticated
+  using (bucket_id='shweta-studio-private-media' and public.is_site_owner());
+drop policy if exists shweta_studio_media_owner_insert on storage.objects;
+create policy shweta_studio_media_owner_insert on storage.objects
+  for insert to authenticated
+  with check (bucket_id='shweta-studio-private-media' and public.is_site_owner());
+drop policy if exists shweta_studio_media_owner_update on storage.objects;
+create policy shweta_studio_media_owner_update on storage.objects
+  for update to authenticated
+  using (bucket_id='shweta-studio-private-media' and public.is_site_owner())
+  with check (bucket_id='shweta-studio-private-media' and public.is_site_owner());
+drop policy if exists shweta_studio_media_owner_delete on storage.objects;
+create policy shweta_studio_media_owner_delete on storage.objects
+  for delete to authenticated
+  using (bucket_id='shweta-studio-private-media' and public.is_site_owner());
+
 alter table public.studio_authors enable row level security;
 alter table public.studio_sources enable row level security;
 alter table public.studio_media enable row level security;
@@ -131,8 +157,8 @@ as $$
 begin
   -- Post updates are authorized by posts RLS for browser users. The scheduled
   -- database job runs without an end-user JWT and must still create a revision.
-  if tg_op = 'INSERT' or row(new.title,new.slug,new.subtitle,new.post_type,new.body,new.tags,new.sources,new.status,new.scheduled_at,new.author_id,new.author_name,new.seo_title,new.seo_description,new.canonical_url,new.featured,new.last_reviewed_at,new.correction_note)
-       is distinct from row(old.title,old.slug,old.subtitle,old.post_type,old.body,old.tags,old.sources,old.status,old.scheduled_at,old.author_id,old.author_name,old.seo_title,old.seo_description,old.canonical_url,old.featured,old.last_reviewed_at,old.correction_note) then
+  if tg_op = 'INSERT' or row(new.title,new.slug,new.subtitle,new.post_type,new.body,new.tags,new.sources,new.status,new.scheduled_at,new.author_id,new.author_name,new.structured_data,new.seo_title,new.seo_description,new.canonical_url,new.featured,new.last_reviewed_at,new.correction_note)
+       is distinct from row(old.title,old.slug,old.subtitle,old.post_type,old.body,old.tags,old.sources,old.status,old.scheduled_at,old.author_id,old.author_name,old.structured_data,old.seo_title,old.seo_description,old.canonical_url,old.featured,old.last_reviewed_at,old.correction_note) then
     insert into public.studio_revisions(post_id,actor_id,snapshot)
     values (new.id, auth.uid(), to_jsonb(new));
     insert into public.studio_activity(actor_id,action,object_type,object_id,summary)
@@ -202,4 +228,3 @@ revoke all on function public.get_public_post_teasers() from public;
 grant execute on function public.get_public_post_teasers() to anon,authenticated;
 
 commit;
-

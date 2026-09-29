@@ -33,7 +33,7 @@
     try {
       const { data: { user } } = await db.auth.getUser();
       const result = user
-        ? await db.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at,author_name,seo_title,seo_description,canonical_url,featured,last_reviewed_at,correction_note').eq('status','published').order('featured',{ascending:false}).order('published_at',{ascending:false}).limit(100)
+        ? await db.from('posts').select('id,title,slug,subtitle,post_type,body,structured_data,tags,sources,published_at,updated_at,author_name,seo_title,seo_description,canonical_url,featured,last_reviewed_at,correction_note').eq('status','published').order('featured',{ascending:false}).order('published_at',{ascending:false}).limit(100)
         : await db.rpc('get_public_post_teasers');
       const { data, error } = result;
       if (error) throw error;
@@ -97,11 +97,12 @@
       const guestByline=root.querySelector('.reading-byline');if(guestByline)guestByline.firstChild.textContent=`BY ${post.author_name||'SHWETA'} `;
       return;
     }
-    const {data:fullPost,error:fullPostError}=await window.SHWETA_PUBLIC_DB.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at,author_name,seo_title,seo_description,canonical_url,featured,last_reviewed_at,correction_note').eq('id',post.id).eq('status','published').single();
+    const {data:fullPost,error:fullPostError}=await window.SHWETA_PUBLIC_DB.from('posts').select('id,title,slug,subtitle,post_type,body,structured_data,tags,sources,published_at,updated_at,author_name,seo_title,seo_description,canonical_url,featured,last_reviewed_at,correction_note').eq('id',post.id).eq('status','published').single();
     if(fullPostError||!fullPost) { root.innerHTML='<p class="muted wrap">This publication could not be loaded. Please sign in again and retry.</p>'; return; }
     post=fullPost;
     const safeSources=(post.sources||[]).map(source=>typeof source==='string'?{url:source,label:source}:{url:source.url,label:source.label||source.url}).filter(source=>/^https?:\/\//i.test(source.url||''));
-    const paragraphs=renderBody(post.body);
+    const structuredMarkdown=Object.entries(post.structured_data||{}).map(([key,value])=>`## ${key.replace(/_/g,' ')}\n\n${value}`).join('\n\n');
+    const paragraphs=renderBody([structuredMarkdown,post.body].filter(Boolean).join('\n\n'));
     root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle)}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}<button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save this piece">♡ Save</button></div></header><div class="article-body"><div class="published-copy">${paragraphs}</div><aside class="legal-note"><strong>Information, not legal advice.</strong> This publication is educational and does not establish a lawyer–client relationship. Check current law and primary sources before relying on it.</aside>${safeSources.length?`<section class="sources"><p class="eyebrow">SOURCES & FURTHER READING</p><ul>${safeSources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.label)} ↗</a></li>`).join('')}</ul></section>`:''}<section class="reader-interactions" aria-label="Reader responses"><h2>Join the conversation</h2><p class="fine-print">Please do not post private case details or sensitive personal information. Comments are reviewed before they appear.</p><div class="reader-auth"></div><div class="reader-actions" hidden><button type="button" class="button-primary" id="reader-like">Like</button><button type="button" class="tool-button" id="reader-bookmark">Save to my account</button><button type="button" class="tool-button" id="reader-signout">Sign out</button></div><p class="reader-status" role="status"></p><form class="reader-comment-form" hidden><label for="reader-comment">Add a comment</label><textarea id="reader-comment" maxlength="4000" required rows="4"></textarea><button class="button-primary" type="submit">Submit for review</button></form><div class="reader-comments"><h3>Approved comments</h3><div class="reader-comment-list"></div></div></section></div></article>`;
     document.title=`${post.seo_title||post.title} · SHWETA`;
     const metaDescription=document.querySelector('meta[name="description"]');if(metaDescription&&post.seo_description)metaDescription.content=post.seo_description;
@@ -141,4 +142,3 @@
   }
   renderPostPage();
 })();
-

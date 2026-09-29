@@ -47,6 +47,19 @@ body.reader-wall-active{overflow:hidden}.reader-wall{display:none}body.reader-wa
 .studio-editor-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -10px; }
 .studio-editor-tools button, .studio-text-button { border: 1px solid var(--line); background: transparent; color: var(--ink); padding: 7px 10px; cursor: pointer; font-size: 10px; }
 .studio-editor-tools button:hover, .studio-text-button:hover { color: var(--accent); border-color: var(--accent); }
+.studio-structured-fields { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 18px; }
+.studio-structured-fields > .eyebrow { margin: 0 0 14px; }
+.studio-structured-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.studio-structured-grid label { display: grid; gap: 7px; font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.studio-structured-grid textarea { min-height: 72px; }
+.studio-library-form { display: grid; gap: 13px; border: 1px solid var(--line); padding: 20px; margin: 18px 0; }
+.studio-library-form h3 { font: 500 21px var(--serif); margin: 0; }
+.studio-library-form label { display: grid; gap: 7px; font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.studio-library-form input,.studio-library-form textarea,.studio-library-form select { width: 100%; border: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: 11px; font: 13px var(--sans); letter-spacing: normal; }
+.studio-library-form textarea { resize: vertical; line-height: 1.6; }
+.studio-library-form .fine-print { margin: 0; }
+.studio-library-list { margin-top: 20px; }
+@media(max-width:700px) { .studio-structured-grid { grid-template-columns: 1fr; } }
 .studio-checklist { border: 1px solid var(--line); background: var(--soft); padding: 15px 18px; }
 .studio-checklist .eyebrow { margin: 0 0 8px; }
 .studio-checklist ul { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; padding: 0; margin: 0; }
@@ -78,4 +91,3 @@ body.reader-wall-active{overflow:hidden}.reader-wall{display:none}body.reader-wa
 .correction-note{padding:1.1rem 1.25rem;margin:0 0 1.5rem;border-left:3px solid var(--accent);background:var(--soft)}
 .correction-note p{margin:.35rem 0 0}
 @media(max-width:680px){.studio-metadata-fields,.studio-library-form,.studio-settings-card{grid-template-columns:1fr}.studio-library-form h3,.studio-settings-card h3,.studio-library-form [name=notes],.studio-library-form [name=bio],.studio-library-form [name=details],.studio-library-form [name=correction_note],.studio-library-form [name=value],.studio-settings-card p,.studio-library-form button{grid-column:1}}
-
