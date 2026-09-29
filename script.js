@@ -118,6 +118,13 @@
   const path = location.pathname.replace(/\/$/, '') || '/';
   if (!['/sign-in', '/studio', '/404'].includes(path)) {
     const returnTo = `${location.pathname}${location.search}${location.hash}`;
+    if (nav && !nav.querySelector('.studio-nav-link')) {
+      const studioLink = document.createElement('a');
+      studioLink.className = 'studio-nav-link';
+      studioLink.href = '/studio';
+      studioLink.textContent = 'Admin studio';
+      nav.append(studioLink);
+    }
     Promise.resolve(window.SHWETA_PUBLIC_DB_READY || window.SHWETA_PUBLIC_CONTENT_READY).catch(() => null).then(async resolvedDb => {
       const db = resolvedDb || window.SHWETA_PUBLIC_DB;
       if (!db) return;

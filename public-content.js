@@ -1,7 +1,17 @@
 (() => {
   const config = window.SHWETA_STUDIO_CONFIG || {};
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective'}[type] || 'Article');
+  const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective','Announcement':'The Brief'}[type] || 'Article');
+  const renderBody = value => {
+    const inline = text => esc(text).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" rel="noopener noreferrer">$1</a>');
+    return String(value||'').trim().split(/\n{2,}/).filter(Boolean).map(block=>{
+      const lines=block.split('\n');
+      if(/^#{1,3}\s/.test(lines[0])){const level=Math.min(lines[0].match(/^#+/)[0].length+1,4);return `<h${level}>${inline(lines[0].replace(/^#{1,3}\s/,''))}</h${level}>`;}
+      if(lines.every(line=>/^>\s?/.test(line)))return `<blockquote>${lines.map(line=>inline(line.replace(/^>\s?/,''))).join('<br>')}</blockquote>`;
+      if(lines.every(line=>/^[-*]\s+/.test(line)))return `<ul>${lines.map(line=>`<li>${inline(line.replace(/^[-*]\s+/,''))}</li>`).join('')}</ul>`;
+      return `<p>${lines.map(inline).join('<br>')}</p>`;
+    }).join('');
+  };
   const routeFor = post => `/post?slug=${encodeURIComponent(post.slug)}`;
   const summaryFor = post => post.subtitle || '';
   const publicDbPromise = (async () => {
@@ -23,7 +33,7 @@
     try {
       const { data: { user } } = await db.auth.getUser();
       const result = user
-        ? await db.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at').eq('status','published').order('published_at',{ascending:false}).limit(100)
+        ? await db.from('posts').select('id,title,slug,subtitle,post_type,body,structured_data,tags,sources,published_at,updated_at,author_name,seo_title,seo_description,canonical_url,featured,last_reviewed_at,correction_note').eq('status','published').order('featured',{ascending:false}).order('published_at',{ascending:false}).limit(100)
         : await db.rpc('get_public_post_teasers');
       const { data, error } = result;
       if (error) throw error;
@@ -56,7 +66,18 @@
     }
     if (path==='/' && posts.length) {
       const container=document.querySelector('.home-index');
-      if(container) container.insertAdjacentHTML('beforeend',posts.slice(0,4).map((post,i)=>`<a class="index-row" href="${routeFor(post)}"><span>${String(i+5).padStart(2,'0')}</span><small>${esc(kindFor(post.post_type).toUpperCase())}</small><strong>${esc(post.title)}</strong><i>↗</i></a>`).join(''));
+      if(container){
+        const featured=posts.find(post=>post.featured);
+        const knownTitles=new Set([...container.querySelectorAll('.index-row strong')].map(node=>node.textContent.trim()));
+        if(featured){
+          const first=container.querySelector('.index-row');
+          const existing=[...container.querySelectorAll('.index-row')].find(row=>row.querySelector('strong')?.textContent.trim()===featured.title);
+          if(existing){existing.dataset.cmsFeatured='';existing.href=routeFor(featured);const small=existing.querySelector('small');if(small)small.textContent=`${kindFor(featured.post_type).toUpperCase()} · FEATURED`;if(first&&existing!==first)container.insertBefore(existing,first);}
+          else {const row=`<a class="index-row" data-cms-featured href="${routeFor(featured)}"><span>01</span><small>${esc(kindFor(featured.post_type).toUpperCase())} · FEATURED</small><strong>${esc(featured.title)}</strong><i>↗</i></a>`;if(first)first.insertAdjacentHTML('beforebegin',row);else container.insertAdjacentHTML('beforeend',row);}
+        }
+        const latest=posts.filter(post=>post.id!==featured?.id).slice(0,4);
+        container.insertAdjacentHTML('beforeend',latest.map((post,i)=>`<a class="index-row" href="${routeFor(post)}"><span>${String(i+5).padStart(2,'0')}</span><small>${esc(kindFor(post.post_type).toUpperCase())}</small><strong>${esc(post.title)}</strong><i>↗</i></a>`).join(''));
+      }
     }
   });
 
@@ -70,16 +91,25 @@
     const {data:{user:reader}}=await window.SHWETA_PUBLIC_DB.auth.getUser();
     if(!reader) {
       root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle||'A SHWETA publication')}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}</div></header><div class="article-body"><section class="reader-access-card"><p class="eyebrow">A FREE READER ACCOUNT</p><h2>Continue with the complete article.</h2><p>Create a free account or sign in to read the full publication, case analysis and rights guide.</p><a class="button-primary" href="/sign-in?next=${encodeURIComponent(location.pathname+location.search)}">Sign in or create an account</a></section></div></article>`;
-      document.title=`${post.title} · SHWETA`;
+      document.title=`${post.seo_title||post.title} · SHWETA`;
+      const guestDescription=document.querySelector('meta[name="description"]');if(guestDescription&&post.seo_description)guestDescription.content=post.seo_description;
+      const guestCanonical=document.querySelector('link[rel="canonical"]');if(guestCanonical&&post.canonical_url)guestCanonical.href=post.canonical_url;
+      const guestByline=root.querySelector('.reading-byline');if(guestByline)guestByline.firstChild.textContent=`BY ${post.author_name||'SHWETA'} `;
       return;
     }
-    const {data:fullPost,error:fullPostError}=await window.SHWETA_PUBLIC_DB.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at').eq('id',post.id).eq('status','published').single();
+    const {data:fullPost,error:fullPostError}=await window.SHWETA_PUBLIC_DB.from('posts').select('id,title,slug,subtitle,post_type,body,structured_data,tags,sources,published_at,updated_at,author_name,seo_title,seo_description,canonical_url,featured,last_reviewed_at,correction_note').eq('id',post.id).eq('status','published').single();
     if(fullPostError||!fullPost) { root.innerHTML='<p class="muted wrap">This publication could not be loaded. Please sign in again and retry.</p>'; return; }
     post=fullPost;
     const safeSources=(post.sources||[]).map(source=>typeof source==='string'?{url:source,label:source}:{url:source.url,label:source.label||source.url}).filter(source=>/^https?:\/\//i.test(source.url||''));
-    const paragraphs=(post.body||'').split(/\n\s*\n/).filter(Boolean).map(text=>`<p>${esc(text).replace(/\n/g,'<br>')}</p>`).join('');
+    const structuredMarkdown=Object.entries(post.structured_data||{}).map(([key,value])=>`## ${key.replace(/_/g,' ')}\n\n${value}`).join('\n\n');
+    const paragraphs=renderBody([structuredMarkdown,post.body].filter(Boolean).join('\n\n'));
     root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle)}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}<button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save this piece">♡ Save</button></div></header><div class="article-body"><div class="published-copy">${paragraphs}</div><aside class="legal-note"><strong>Information, not legal advice.</strong> This publication is educational and does not establish a lawyer–client relationship. Check current law and primary sources before relying on it.</aside>${safeSources.length?`<section class="sources"><p class="eyebrow">SOURCES & FURTHER READING</p><ul>${safeSources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.label)} ↗</a></li>`).join('')}</ul></section>`:''}<section class="reader-interactions" aria-label="Reader responses"><h2>Join the conversation</h2><p class="fine-print">Please do not post private case details or sensitive personal information. Comments are reviewed before they appear.</p><div class="reader-auth"></div><div class="reader-actions" hidden><button type="button" class="button-primary" id="reader-like">Like</button><button type="button" class="tool-button" id="reader-bookmark">Save to my account</button><button type="button" class="tool-button" id="reader-signout">Sign out</button></div><p class="reader-status" role="status"></p><form class="reader-comment-form" hidden><label for="reader-comment">Add a comment</label><textarea id="reader-comment" maxlength="4000" required rows="4"></textarea><button class="button-primary" type="submit">Submit for review</button></form><div class="reader-comments"><h3>Approved comments</h3><div class="reader-comment-list"></div></div></section></div></article>`;
-    document.title=`${post.title} · SHWETA`;
+    document.title=`${post.seo_title||post.title} · SHWETA`;
+    const metaDescription=document.querySelector('meta[name="description"]');if(metaDescription&&post.seo_description)metaDescription.content=post.seo_description;
+    const canonical=document.querySelector('link[rel="canonical"]');if(canonical&&post.canonical_url)canonical.href=post.canonical_url;
+    const byline=root.querySelector('.reading-byline');if(byline)byline.firstChild.textContent=`BY ${post.author_name||'SHWETA'} `;
+    if(post.correction_note){const note=document.createElement('aside');note.className='correction-note';const heading=document.createElement('strong');heading.textContent='Correction / update';const copy=document.createElement('p');copy.textContent=post.correction_note;note.append(heading,copy);root.querySelector('.article-body')?.prepend(note);}
+    const legalNote=root.querySelector('.legal-note');if(legalNote&&post.last_reviewed_at){const reviewed=document.createElement('span');reviewed.textContent=` Last reviewed ${new Date(post.last_reviewed_at+'T00:00:00').toLocaleDateString()}.`;legalNote.append(reviewed);}
     const db=window.SHWETA_PUBLIC_DB;
     if(!db) return;
     const authRoot=root.querySelector('.reader-auth'), actions=root.querySelector('.reader-actions'), status=root.querySelector('.reader-status'), form=root.querySelector('.reader-comment-form');

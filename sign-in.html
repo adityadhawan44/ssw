@@ -17,7 +17,7 @@
         <form id="reader-signin" class="reader-signin-form" novalidate><label>Email address<input type="email" name="email" autocomplete="email" required></label><label>Password<input type="password" name="password" autocomplete="current-password" minlength="8" required></label><button id="reader-submit" class="button-primary" type="submit">Sign in</button></form>
         <button id="reader-mode-toggle" class="reader-mode-toggle" type="button">New to SHWETA? Create a reader account</button>
         <p id="reader-message" class="signin-message" role="status" aria-live="polite" hidden></p>
-        <div class="signin-session" hidden><p>You’re signed in as <strong id="reader-email"></strong>.</p><a class="text-link" id="reader-continue" href="/journal">Continue reading ↗</a><button id="reader-signout" class="tool-button" type="button">Sign out</button></div>
+        <div class="signin-session" hidden><p>You’re signed in as <strong id="reader-email"></strong>.</p><a class="text-link" id="reader-continue" href="/journal">Continue reading ↗</a><button id="reader-signout" class="tool-button" type="button">Sign out</button><button id="reader-switch-admin" class="button-primary" type="button">Sign out and open admin sign in</button></div>
         <p class="fine-print signin-privacy">Your account and sign-in session are managed securely. SHWETA never stores your password as readable text. Signing in unlocks reading on this device.</p>
       </section>
     </div><p class="fine-print signin-back"><a href="/">← Back to SHWETA</a></p>
@@ -37,7 +37,10 @@
     if(!config.supabaseUrl||!config.supabaseAnonKey){say('Reader sign-in is temporarily unavailable. Please try again later.',true);form.hidden=true;googleButton.hidden=true;modeToggle.hidden=true;}
     else{try{
       db=await window.SHWETA_PUBLIC_DB_READY;if(!db)throw new Error('Reader sign-in is temporarily unavailable. Please try again later.');await sync();
-      const {data:{user}}=await db.auth.getUser();if(user){goNext();}
+      // Keep the role chooser visible for an existing reader session. A reader
+      // account must not silently redirect away before the admin option can be used.
+      const {data:{user}}=await db.auth.getUser();
+      if(user&&(query.has('code')||location.hash.includes('access_token')))goNext();
       modeToggle.addEventListener('click',()=>setMode(mode==='signin'?'signup':'signin'));
       form.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity())return;const values=new FormData(form),email=String(values.get('email')).trim(),password=String(values.get('password'));submit.disabled=true;googleButton.disabled=true;modeToggle.disabled=true;say(mode==='signup'?'Creating your reader account…':'Signing you in…');
         try{if(mode==='signup'){const {data,error}=await db.auth.signUp({email,password,options:{emailRedirectTo:`${location.origin}/sign-in?next=${encodeURIComponent(next)}`}});if(error)throw error;if(data.session){say('Your account is ready. Opening your reading…');goNext();}else{form.reset();say('Check your email to verify your reader account, then sign in here.');}}
@@ -46,6 +49,7 @@
       });
       googleButton.addEventListener('click',async()=>{googleButton.disabled=true;submit.disabled=true;modeToggle.disabled=true;say('Connecting to Google…');const {error}=await db.auth.signInWithOAuth({provider:'google',options:{redirectTo:`${location.origin}/sign-in?next=${encodeURIComponent(next)}`}});if(error){say(error.message.includes('provider')?'Google sign-in is not enabled for this site yet.':error.message,true);googleButton.disabled=false;submit.disabled=false;modeToggle.disabled=false;}});
       document.querySelector('#reader-signout').addEventListener('click',async()=>{const {error}=await db.auth.signOut();if(error)say(error.message,true);else{await sync();say('You have signed out.');}});
+      document.querySelector('#reader-switch-admin').addEventListener('click',async()=>{const button=document.querySelector('#reader-switch-admin');button.disabled=true;say('Signing out of the reader account…');const {error}=await db.auth.signOut();if(error){button.disabled=false;say(error.message,true);return;}location.assign('/studio?switch=1');});
     }catch(error){say('Reader sign-in could not connect. Please try again later.',true);}}
   </script>
   <footer class="site-footer"><div class="footer-main"><a class="wordmark" href="/">SHWETA<span>.</span></a><p>Law · Rights · Independent Thought</p></div><div class="footer-bottom"><span>© 2026 SHWETA · ALL RIGHTS RESERVED</span><span>GENERAL INFORMATION ONLY · NOT LEGAL ADVICE</span></div></footer>
