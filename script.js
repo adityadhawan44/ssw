@@ -113,9 +113,8 @@
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openDialog('.search-dialog'); setTimeout(() => searchInput?.focus(), 40); }
   });
 
-  // Reader wall: let visitors see the opening preview, then ask them to sign in.
-  // This is a front-end reading experience; static HTML still needs server-side
-  // protection before it can be treated as a true access-control boundary.
+  // Reader wall: show previews to visitors and keep dynamic article bodies behind
+  // authenticated Supabase reads. The database policy is the access-control boundary.
   const path = location.pathname.replace(/\/$/, '') || '/';
   if (!['/sign-in', '/studio', '/404'].includes(path)) {
     const returnTo = `${location.pathname}${location.search}${location.hash}`;
@@ -157,7 +156,7 @@
       checkPosition();
       db.auth.onAuthStateChange((_event, session) => {
         if (session?.user) { user = session.user; deactivate(); }
-        else if (user) { user = null; checkPosition(); }
+        else if (user) { location.reload(); }
       });
     }).catch(() => {});
   }
