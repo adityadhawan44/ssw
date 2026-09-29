@@ -1,7 +1,17 @@
 (() => {
   const config = window.SHWETA_STUDIO_CONFIG || {};
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective'}[type] || 'Article');
+  const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective','Announcement':'The Brief'}[type] || 'Article');
+  const renderBody = value => {
+    const inline = text => esc(text).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" rel="noopener noreferrer">$1</a>');
+    return String(value||'').trim().split(/\n{2,}/).filter(Boolean).map(block=>{
+      const lines=block.split('\n');
+      if(/^#{1,3}\s/.test(lines[0])){const level=Math.min(lines[0].match(/^#+/)[0].length+1,4);return `<h${level}>${inline(lines[0].replace(/^#{1,3}\s/,''))}</h${level}>`;}
+      if(lines.every(line=>/^>\s?/.test(line)))return `<blockquote>${lines.map(line=>inline(line.replace(/^>\s?/,''))).join('<br>')}</blockquote>`;
+      if(lines.every(line=>/^[-*]\s+/.test(line)))return `<ul>${lines.map(line=>`<li>${inline(line.replace(/^[-*]\s+/,''))}</li>`).join('')}</ul>`;
+      return `<p>${lines.map(inline).join('<br>')}</p>`;
+    }).join('');
+  };
   const routeFor = post => `/post?slug=${encodeURIComponent(post.slug)}`;
   const summaryFor = post => post.subtitle || '';
   const publicDbPromise = (async () => {
@@ -23,7 +33,7 @@
     try {
       const { data: { user } } = await db.auth.getUser();
       const result = user
-        ? await db.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at').eq('status','published').order('published_at',{ascending:false}).limit(100)
+        ? await db.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at,author_name,seo_title,seo_description,canonical_url,featured,last_reviewed_at,correction_note').eq('status','published').order('featured',{ascending:false}).order('published_at',{ascending:false}).limit(100)
         : await db.rpc('get_public_post_teasers');
       const { data, error } = result;
       if (error) throw error;
@@ -64,22 +74,34 @@
     const root=document.querySelector('#published-post');
     if(!root) return;
     const slug=new URLSearchParams(location.search).get('slug');
-    if(!slug) { root.innerHTML='<p class="muted">This publication could not be found.</p>'; return; }    const posts=await livePostsPromise; let post=posts.find(item=>item.slug===slug);    if(!post) { root.innerHTML='<p class="muted">This publication is unavailable or is no longer published.</p>'; return; }
-    const { data: { user: reader } } = await window.SHWETA_PUBLIC_DB.auth.getUser();
+    if(!slug) { root.innerHTML='<p class="muted">This publication could not be found.</p>'; return; }
+    const posts=await livePostsPromise; let post=posts.find(item=>item.slug===slug);
+    if(!post) { root.innerHTML='<p class="muted">This publication is unavailable or is no longer published.</p>'; return; }
+    const {data:{user:reader}}=await window.SHWETA_PUBLIC_DB.auth.getUser();
     if(!reader) {
-      const signInUrl='/sign-in?next='+encodeURIComponent(location.pathname+location.search);
-      root.innerHTML='<article class="reader-access-card wrap"><p class="eyebrow">A MORE PERSONAL READING EXPERIENCE</p><h1>'+esc(post.title)+'</h1><p class="reading-deck">Create a free reader account or sign in to continue reading this publication.</p><a class="button-primary" href="'+signInUrl+'">Sign in or create a free account</a><p class="fine-print">Your account unlocks the full library of SHWETA publications.</p></article>';
-      document.title=post.title+' · SHWETA';
+      root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle||'A SHWETA publication')}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}</div></header><div class="article-body"><section class="reader-access-card"><p class="eyebrow">A FREE READER ACCOUNT</p><h2>Continue with the complete article.</h2><p>Create a free account or sign in to read the full publication, case analysis and rights guide.</p><a class="button-primary" href="/sign-in?next=${encodeURIComponent(location.pathname+location.search)}">Sign in or create an account</a></section></div></article>`;
+      document.title=`${post.seo_title||post.title} · SHWETA`;
+      const guestDescription=document.querySelector('meta[name="description"]');if(guestDescription&&post.seo_description)guestDescription.content=post.seo_description;
+      const guestCanonical=document.querySelector('link[rel="canonical"]');if(guestCanonical&&post.canonical_url)guestCanonical.href=post.canonical_url;
+      const guestByline=root.querySelector('.reading-byline');if(guestByline)guestByline.firstChild.textContent=`BY ${post.author_name||'SHWETA'} `;
       return;
     }
+    const {data:fullPost,error:fullPostError}=await window.SHWETA_PUBLIC_DB.from('posts').select('id,title,slug,subtitle,post_type,body,tags,sources,published_at,updated_at,author_name,seo_title,seo_description,canonical_url,featured,last_reviewed_at,correction_note').eq('id',post.id).eq('status','published').single();
+    if(fullPostError||!fullPost) { root.innerHTML='<p class="muted wrap">This publication could not be loaded. Please sign in again and retry.</p>'; return; }
+    post=fullPost;
     const safeSources=(post.sources||[]).map(source=>typeof source==='string'?{url:source,label:source}:{url:source.url,label:source.label||source.url}).filter(source=>/^https?:\/\//i.test(source.url||''));
-    const paragraphs=(post.body||'').split(/\n\s*\n/).filter(Boolean).map(text=>`<p>${esc(text).replace(/\n/g,'<br>')}</p>`).join('');
+    const paragraphs=renderBody(post.body);
     root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle)}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}<button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save this piece">♡ Save</button></div></header><div class="article-body"><div class="published-copy">${paragraphs}</div><aside class="legal-note"><strong>Information, not legal advice.</strong> This publication is educational and does not establish a lawyer–client relationship. Check current law and primary sources before relying on it.</aside>${safeSources.length?`<section class="sources"><p class="eyebrow">SOURCES & FURTHER READING</p><ul>${safeSources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.label)} ↗</a></li>`).join('')}</ul></section>`:''}<section class="reader-interactions" aria-label="Reader responses"><h2>Join the conversation</h2><p class="fine-print">Please do not post private case details or sensitive personal information. Comments are reviewed before they appear.</p><div class="reader-auth"></div><div class="reader-actions" hidden><button type="button" class="button-primary" id="reader-like">Like</button><button type="button" class="tool-button" id="reader-bookmark">Save to my account</button><button type="button" class="tool-button" id="reader-signout">Sign out</button></div><p class="reader-status" role="status"></p><form class="reader-comment-form" hidden><label for="reader-comment">Add a comment</label><textarea id="reader-comment" maxlength="4000" required rows="4"></textarea><button class="button-primary" type="submit">Submit for review</button></form><div class="reader-comments"><h3>Approved comments</h3><div class="reader-comment-list"></div></div></section></div></article>`;
-    document.title=`${post.title} · SHWETA`;
+    document.title=`${post.seo_title||post.title} · SHWETA`;
+    const metaDescription=document.querySelector('meta[name="description"]');if(metaDescription&&post.seo_description)metaDescription.content=post.seo_description;
+    const canonical=document.querySelector('link[rel="canonical"]');if(canonical&&post.canonical_url)canonical.href=post.canonical_url;
+    const byline=root.querySelector('.reading-byline');if(byline)byline.firstChild.textContent=`BY ${post.author_name||'SHWETA'} `;
+    if(post.correction_note){const note=document.createElement('aside');note.className='correction-note';const heading=document.createElement('strong');heading.textContent='Correction / update';const copy=document.createElement('p');copy.textContent=post.correction_note;note.append(heading,copy);root.querySelector('.article-body')?.prepend(note);}
+    const legalNote=root.querySelector('.legal-note');if(legalNote&&post.last_reviewed_at){const reviewed=document.createElement('span');reviewed.textContent=` Last reviewed ${new Date(post.last_reviewed_at+'T00:00:00').toLocaleDateString()}.`;legalNote.append(reviewed);}
     const db=window.SHWETA_PUBLIC_DB;
     if(!db) return;
     const authRoot=root.querySelector('.reader-auth'), actions=root.querySelector('.reader-actions'), status=root.querySelector('.reader-status'), form=root.querySelector('.reader-comment-form');
-    authRoot.innerHTML='<form class="reader-login"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="current-password" minlength="8" required></label><button class="button-primary" type="submit">Sign in</button></form><p class="fine-print">Reader sign-up is not open yet. Do not share confidential or personal case details in comments.</p>';
+    authRoot.innerHTML='<p class="fine-print">Reader access is available through a free account. <a href="/sign-in">Sign in or create an account</a>. Do not share confidential or personal case details in comments.</p>';
     const setStatus=(text,isError=false)=>{status.textContent=text;status.dataset.kind=isError?'error':'success';};
     const ensureProfile=async user=>{const display=(user.user_metadata?.display_name||user.email?.split('@')[0]||'Reader').slice(0,80);await db.from('reader_profiles').upsert({user_id:user.id,display_name:display},{onConflict:'user_id'});};
     async function loadComments(){
@@ -100,8 +122,7 @@
       await loadComments();
     }
     const {data:{user}}=await db.auth.getUser(); await showUser(user);
-    authRoot.querySelector('.reader-login').addEventListener('submit',async event=>{event.preventDefault();const f=new FormData(event.currentTarget);const {data,error}=await db.auth.signInWithPassword({email:f.get('email'),password:f.get('password')});if(error)setStatus(error.message,true);else{setStatus('Signed in.');await showUser(data.user);}});
-    root.querySelector('#reader-signout').addEventListener('click',async()=>{await db.auth.signOut();await showUser(null);setStatus('Signed out.');});
+    root.querySelector('#reader-signout').addEventListener('click',async()=>{const {error}=await db.auth.signOut();if(error)setStatus(error.message,true);else location.reload();});
     root.querySelector('#reader-like').addEventListener('click',async()=>{const {data:{user:active}}=await db.auth.getUser();if(!active)return;const button=root.querySelector('#reader-like');const result=button.textContent==='Liked'?await db.from('post_likes').delete().eq('post_id',post.id).eq('user_id',active.id):await db.from('post_likes').insert({post_id:post.id,user_id:active.id});if(result.error)setStatus('Could not update your like. Please try again.',true);else{button.textContent=button.textContent==='Liked'?'Like':'Liked';setStatus('Your response is saved.');}});
     root.querySelector('#reader-bookmark').addEventListener('click',async()=>{const {data:{user:active}}=await db.auth.getUser();if(!active)return;const button=root.querySelector('#reader-bookmark');const result=button.textContent==='Saved to my account'?await db.from('bookmarks').delete().eq('post_id',post.id).eq('user_id',active.id):await db.from('bookmarks').insert({post_id:post.id,user_id:active.id});if(result.error)setStatus('Could not update your reading list. Please try again.',true);else{button.textContent=button.textContent==='Saved to my account'?'Save to my account':'Saved to my account';setStatus('Your reading list is updated.');}});
     form.addEventListener('submit',async event=>{event.preventDefault();const {data:{user:active}}=await db.auth.getUser();if(!active)return;const body=new FormData(form).get('comment').trim();if(!body)return;const {error}=await db.from('comments').insert({post_id:post.id,user_id:active.id,body,status:'pending'});if(error)setStatus('Comment could not be submitted. Please sign in again and retry.',true);else{form.reset();setStatus('Thanks. Your comment is awaiting review.');}});
@@ -109,3 +130,4 @@
   }
   renderPostPage();
 })();
+
