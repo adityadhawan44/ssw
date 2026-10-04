@@ -23,10 +23,35 @@
   $$('.overlay-close').forEach(button => button.addEventListener('click', () => closeDialog(button)));
   $$('.overlay').forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));
 
-  const getSaved = () => { try { return JSON.parse(localStorage.getItem('shweta-saved') || '[]'); } catch { return []; } };
-  const setSaved = items => localStorage.setItem('shweta-saved', JSON.stringify(items));
+  let savedStorageKey='shweta-saved';
+  const savedMemory=new Map();
+  const getSaved = () => { const memory=savedMemory.get(savedStorageKey);try { const items=JSON.parse(localStorage.getItem(savedStorageKey) || '[]');const clean=Array.isArray(items)?items.filter(item=>typeof item==='string'):[];if(memory&&memory.length>clean.length)return memory;savedMemory.set(savedStorageKey,clean);return clean; } catch { return memory||[]; } };
+  const setSaved = items => { savedMemory.set(savedStorageKey,items);try { localStorage.setItem(savedStorageKey, JSON.stringify(items)); return true; } catch { return false; } };
   let indexPromise;
   const getIndex = () => indexPromise ||= Promise.all([fetch('/search-index.json').then(response => response.ok ? response.json() : []).catch(() => []), window.SHWETA_PUBLIC_SEARCH_ITEMS || Promise.resolve([])]).then(([staticItems,publishedItems]) => [...staticItems,...publishedItems]);
+  let readerDb=null,readerUserId=null,bookmarkSyncRunning=false;
+  const setSavedNotice=text=>{const note=$('.saved-dialog .fine-print');if(note)note.textContent=text;};
+  async function syncReaderBookmarks(){
+    if(bookmarkSyncRunning)return;bookmarkSyncRunning=true;
+    try{
+      readerDb=await window.SHWETA_PUBLIC_DB_READY;if(!readerDb)return;
+      const {data:{user}}=await readerDb.auth.getUser();readerUserId=user?.id||null;if(!user)return;
+      const accountKey=`shweta-saved:${user.id}`;let anonymousSaved=[];
+      try{if(localStorage.getItem(accountKey)===null)anonymousSaved=JSON.parse(localStorage.getItem('shweta-saved')||'[]').filter(item=>typeof item==='string');}catch{}
+      savedStorageKey=accountKey;
+      const {data:rows,error}=await readerDb.from('bookmarks').select('post_id,posts(slug)').eq('user_id',user.id);
+      if(error){setSavedNotice('Your device reading list is available. We could not sync it to your account just now.');return;}
+      const published=await (window.SHWETA_PUBLIC_CONTENT_READY||Promise.resolve([]));
+      const byId=new Map((published||[]).map(post=>[post.id,post])),bySlug=new Map((published||[]).map(post=>[post.slug,post]));
+      const cloudIds=(rows||[]).map(row=>{const slug=row.posts?.slug||byId.get(row.post_id)?.slug;return slug?`post:${slug}`:null;}).filter(Boolean);
+      const localIds=[...new Set([...getSaved(),...anonymousSaved])],merged=[...new Set([...localIds,...cloudIds])];
+      setSaved(merged);updateSavedControls();
+      const cloudSet=new Set(cloudIds);
+      for(const id of localIds){if(!id.startsWith('post:')||cloudSet.has(id))continue;const post=bySlug.get(id.slice(5));if(!post)continue;const {error:saveError}=await readerDb.from('bookmarks').insert({post_id:post.id,user_id:user.id});if(saveError&&saveError.code!=='23505'){setSavedNotice('Some saved articles could not sync yet. Your device list remains available.');break;}}
+      if($('.saved-dialog')?.open)renderSaved();
+    }catch{setSavedNotice('Your device reading list is available. Account sync could not connect.');}
+    finally{bookmarkSyncRunning=false;}
+  }
   const updateSavedControls = () => {
     const saved = getSaved();
     $$('.saved-count').forEach(node => node.textContent = String(saved.length));
@@ -39,13 +64,21 @@
       button.setAttribute('aria-pressed', String(active));
     });
   };
-  document.addEventListener('click', event => {
+  document.addEventListener('click', async event => {
     const button = event.target.closest('[data-save]');
     if (!button) return;
     const saved = getSaved(), id = button.dataset.save;
-    setSaved(saved.includes(id) ? saved.filter(item => item !== id) : [...saved, id]);
+    const wasSaved=saved.includes(id);
+    const localSaved=setSaved(wasSaved ? saved.filter(item => item !== id) : [...saved, id]);
     updateSavedControls();
     if ($('.saved-dialog')?.open) renderSaved();
+    if(!localSaved)setSavedNotice('This browser blocks device storage. Signed-in article bookmarks can still sync with your account.');
+    if(readerDb&&readerUserId&&id.startsWith('post:')){
+      try{
+        const published=await (window.SHWETA_PUBLIC_CONTENT_READY||Promise.resolve([])),post=(published||[]).find(item=>`post:${item.slug}`===id);
+        if(post){const result=wasSaved?await readerDb.from('bookmarks').delete().eq('post_id',post.id).eq('user_id',readerUserId):await readerDb.from('bookmarks').insert({post_id:post.id,user_id:readerUserId});if(result.error&&result.error.code!=='23505')setSavedNotice('This article is saved on this device. Account sync could not complete; please try again later.');}
+      }catch{setSavedNotice('This article is saved on this device. Account sync could not complete; please try again later.');}
+    }
   });
   async function renderSaved() {
     const root = $('.saved-results'); if (!root) return;
@@ -55,6 +88,10 @@
   }
   function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
   updateSavedControls();
+  Promise.resolve(window.SHWETA_PUBLIC_DB_READY||null).then(async db=>{
+    if(!db)return;readerDb=db;const {data:{user}}=await db.auth.getUser();readerUserId=user?.id||null;if(user){savedStorageKey=`shweta-saved:${user.id}`;updateSavedControls();syncReaderBookmarks();}
+    db.auth.onAuthStateChange((_event,session)=>{readerUserId=session?.user?.id||null;if(session?.user){savedStorageKey=`shweta-saved:${session.user.id}`;updateSavedControls();syncReaderBookmarks();}else{savedStorageKey='shweta-saved';updateSavedControls();if($('.saved-dialog')?.open)renderSaved();}});
+  }).catch(()=>{});
 
   const searchInput = $('#site-search');
   let searchTimer;
@@ -92,7 +129,7 @@
       if (value === 'light') delete body.dataset.theme; else body.dataset.theme = value;
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', value === 'dark' ? '#20231f' : '#f6f4ef');
     }
-    prefs[name] = value; localStorage.setItem('shweta-reading', JSON.stringify(prefs));
+    prefs[name] = value; try { localStorage.setItem('shweta-reading', JSON.stringify(prefs)); } catch { /* Keep the preference for this page even when storage is blocked. */ }
     $$(`[data-${name}]`, $('.preferences-dialog') || document).forEach(btn => btn.classList.toggle('is-active', btn.dataset[name] === value));
   }
   Object.entries(prefs).forEach(([name, value]) => applyPreference(name, value));

@@ -1,7 +1,7 @@
 (() => {
   const config = window.SHWETA_STUDIO_CONFIG || {};
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective','Announcement':'The Brief'}[type] || 'Article');
+  const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective','Announcement':'The Brief','Speaking & Events':'Speaking & events','Project & Initiative':'Project','Media & Press':'Media & press','Resource':'Resource'}[type] || 'Article');
   const renderBody = value => {
     const inline = text => esc(text).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" rel="noopener noreferrer">$1</a>');
     return String(value||'').trim().split(/\n{2,}/).filter(Boolean).map(block=>{
@@ -54,8 +54,28 @@
     if (kind==='Research') return `<article class="research-row" data-item data-category="research" data-search="${esc((post.title+' '+summary).toLowerCase())}"><div><p class="eyebrow">RESEARCH · NEW</p><a href="${href}"><h2>${esc(post.title)}</h2></a><p>${esc(summary)}</p></div><button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save ${esc(post.title)}">♡</button><span class="row-arrow">↗</span></article>`;
     return `<article class="story-row" data-item data-category="${esc((post.tags||[]).join(' ').toLowerCase())}" data-search="${esc((post.title+' '+summary+' '+label).toLowerCase())}"><div class="story-meta"><span>${label}</span><span>NEW</span></div><div class="story-copy"><a href="${href}"><h2>${esc(post.title)}</h2></a><p>${esc(summary)}</p><div class="byline">SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}</div></div><button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save ${esc(post.title)}">♡</button></article>`;
   }
+  const portfolioGroups=[
+    {label:'Writing & essays',types:['Article','Opinion','Essay']},
+    {label:'Legal case studies',types:['Case Analysis']},
+    {label:'Research & reports',types:['Research']},
+    {label:'Rights guides',types:['Rights Guide']},
+    {label:'Speaking & events',types:['Speaking & Events']},
+    {label:'Projects & initiatives',types:['Project & Initiative']},
+    {label:'Media & press',types:['Media & Press']},
+    {label:'Resources',types:['Resource']},
+    {label:'Updates & announcements',types:['Announcement']}
+  ];
+  function renderPortfolio(posts){
+    const grid=document.querySelector('#portfolio-grid');if(!grid)return;
+    const available=portfolioGroups.filter(group=>posts.some(post=>group.types.includes(post.post_type)));
+    const filters=document.querySelector('#portfolio-filters');
+    if(filters){filters.innerHTML=`<button type="button" class="is-active" data-portfolio-filter="all" aria-pressed="true">Everything</button>${available.map(group=>`<button type="button" data-portfolio-filter="${esc(group.label)}" aria-pressed="false">${esc(group.label)}</button>`).join('')}`;filters.addEventListener('click',event=>{const button=event.target.closest('[data-portfolio-filter]');if(!button)return;filters.querySelectorAll('button').forEach(item=>{const active=item===button;item.classList.toggle('is-active',active);item.setAttribute('aria-pressed',String(active));});grid.querySelectorAll('[data-portfolio-card]').forEach(card=>{card.hidden=button.dataset.portfolioFilter!=='all'&&card.dataset.portfolioCard!==button.dataset.portfolioFilter;});},{once:true});}
+    const visible=posts.filter(post=>post.slug&&portfolioGroups.some(group=>group.types.includes(post.post_type))).slice(0,24);
+    grid.innerHTML=visible.length?visible.map(post=>{const group=portfolioGroups.find(item=>item.types.includes(post.post_type));return `<article class="portfolio-card" data-portfolio-card="${esc(group.label)}"><p class="eyebrow">${esc(group.label)}</p><h3><a href="${routeFor(post)}">${esc(post.title)}</a></h3><p>${esc(summaryFor(post)||'Explore this publication and its key details.')}</p><a class="text-link" href="${routeFor(post)}">Explore <span aria-hidden="true">↗</span></a></article>`;}).join(''):'<p class="muted portfolio-empty">Published work across writing, research, events and projects will appear here.</p>';
+  }
 
   livePostsPromise.then(posts => {
+    renderPortfolio(posts);
     const path=location.pathname.replace(/\/$/,'') || '/';
     const targets = {'/journal':['Article','Opinion','Essay'],'/perspective':['Opinion','Essay'],'/casebook':['Case Analysis'],'/rights':['Rights Guide'],'/research':['Research']};
     const target=targets[path];
@@ -86,7 +106,7 @@
     if(!root) return;
     const slug=new URLSearchParams(location.search).get('slug');
     if(!slug) { root.innerHTML='<p class="muted">This publication could not be found.</p>'; return; }
-    const posts=await livePostsPromise; let post=posts.find(item=>item.slug===slug);
+  const posts=await livePostsPromise; let post=posts.find(item=>item.slug===slug);
     if(!post) { root.innerHTML='<p class="muted">This publication is unavailable or is no longer published.</p>'; return; }
     const {data:{user:reader}}=await window.SHWETA_PUBLIC_DB.auth.getUser();
     if(!reader) {
@@ -101,7 +121,9 @@
     if(fullPostError||!fullPost) { root.innerHTML='<p class="muted wrap">This publication could not be loaded. Please sign in again and retry.</p>'; return; }
     post=fullPost;
     const safeSources=(post.sources||[]).map(source=>typeof source==='string'?{url:source,label:source}:{url:source.url,label:source.label||source.url}).filter(source=>/^https?:\/\//i.test(source.url||''));
-    const structuredMarkdown=Object.entries(post.structured_data||{}).map(([key,value])=>`## ${key.replace(/_/g,' ')}\n\n${value}`).join('\n\n');
+    const structuredLabels={case_citation:'Citation',court:'Court',year:'Year',bench:'Bench',subject:'Subject',background:'Background',facts:'Facts',legal_questions:'Legal questions',arguments:'Arguments',reasoning:'Court’s reasoning',judgment:'Judgment',significance:'Why it matters',later_developments:'Later developments',primary_judgment_url:'Primary judgment',related_cases:'Related cases',audience:'Who this is for',topic:'Topic',basic_rule:'The basic rule',what_counts:'What the right covers',law_summary:'What the law says',practical_steps:'What you can do',documents_to_keep:'Documents to keep',common_questions:'Common questions',official_resources:'Official resources',research_question:'Research question',executive_summary:'Executive summary',methodology:'Methodology',key_findings:'Key findings',evidence:'Evidence',analysis:'Analysis',limitations:'Limitations',downloads:'Downloads and data',event_name:'Event',role:'Role',event_date:'Date',venue:'Venue or format',host:'Host or organiser',description:'Session description',recording_url:'Recording',slides_url:'Slides and materials',project_name:'Project',timeframe:'Timeframe',collaborators:'Collaborators',challenge:'Challenge addressed',approach:'Approach',outcomes:'Outcomes',impact:'Impact',project_url:'Project link',outlet:'Publication or outlet',format:'Format',title:'Headline or episode',published_date:'Publication date',author_or_host:'Author or host',summary:'Summary',url:'Coverage link',media_url:'Audio or video',resource_type:'Resource type',instructions:'How to use it',download_url:'Download',license:'Usage and attribution'};
+    const structuredLinks={primary_judgment_url:'Read the primary judgment',recording_url:'Watch or listen to the recording',slides_url:'Open the presentation materials',project_url:'Visit the project',url:'Read the coverage',media_url:'Open the media',download_url:'Download the resource'};
+    const structuredMarkdown=Object.entries(post.structured_data||{}).map(([key,value])=>{const label=structuredLabels[key]||key.replace(/_/g,' ').replace(/\b\w/g,char=>char.toUpperCase());let content=String(value);if(structuredLinks[key]){try{const parsed=new URL(content);if(['http:','https:'].includes(parsed.protocol))content=`[${structuredLinks[key]}](${parsed.href})`;}catch{}}return `## ${label}\n\n${content}`;}).join('\n\n');
     const paragraphs=renderBody([structuredMarkdown,post.body].filter(Boolean).join('\n\n'));
     root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle)}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}<button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save this piece">♡ Save</button></div></header><div class="article-body"><div class="published-copy">${paragraphs}</div><aside class="legal-note"><strong>Information, not legal advice.</strong> This publication is educational and does not establish a lawyer–client relationship. Check current law and primary sources before relying on it.</aside>${safeSources.length?`<section class="sources"><p class="eyebrow">SOURCES & FURTHER READING</p><ul>${safeSources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.label)} ↗</a></li>`).join('')}</ul></section>`:''}<section class="reader-interactions" aria-label="Reader responses"><h2>Join the conversation</h2><p class="fine-print">Please do not post private case details or sensitive personal information. Comments are reviewed before they appear.</p><div class="reader-auth"></div><div class="reader-actions" hidden><button type="button" class="button-primary" id="reader-like">Like</button><button type="button" class="tool-button" id="reader-bookmark">Save to my account</button><button type="button" class="tool-button" id="reader-signout">Sign out</button></div><p class="reader-status" role="status"></p><form class="reader-comment-form" hidden><label for="reader-comment">Add a comment</label><textarea id="reader-comment" maxlength="4000" required rows="4"></textarea><button class="button-primary" type="submit">Submit for review</button></form><div class="reader-comments"><h3>Approved comments</h3><div class="reader-comment-list"></div></div></section></div></article>`;
     document.title=`${post.seo_title||post.title} · SHWETA`;

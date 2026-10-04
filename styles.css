@@ -93,3 +93,30 @@ body.reader-wall-active{overflow:hidden}.reader-wall{display:none}body.reader-wa
 .correction-note{padding:1.1rem 1.25rem;margin:0 0 1.5rem;border-left:3px solid var(--accent);background:var(--soft)}
 .correction-note p{margin:.35rem 0 0}
 @media(max-width:680px){.studio-metadata-fields,.studio-library-form,.studio-settings-card{grid-template-columns:1fr}.studio-library-form h3,.studio-settings-card h3,.studio-library-form [name=notes],.studio-library-form [name=bio],.studio-library-form [name=details],.studio-library-form [name=correction_note],.studio-library-form [name=value],.studio-settings-card p,.studio-library-form button{grid-column:1}}
+
+/* Keyboard, touch and reduced-motion support across the publication. */
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+button,a,input,select,textarea{touch-action:manipulation}
+@media(max-width:700px){.main-nav a,.header-tools a,.header-tools button,.tool-button,.filter-button,.studio-nav a,.studio-actions button,.studio-editor-tools button{min-height:42px}.reader-wall-card .button-primary{min-height:44px;display:inline-flex;align-items:center;justify-content:center}.signin-shell input,.signin-shell button,.studio-login input,.studio-login button{font-size:16px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+
+/* Portfolio work is grouped by format and remains easy to scan on mobile. */
+.portfolio-section{padding-block:clamp(56px,9vw,112px);border-top:1px solid var(--line)}
+.portfolio-heading{display:grid;grid-template-columns:1.2fr .8fr;gap:36px;align-items:end;margin-bottom:28px}
+.portfolio-heading h2{font:500 clamp(32px,5vw,54px)/1.08 "Playfair Display",serif;margin:8px 0 0;max-width:650px}
+.portfolio-heading h2 i{color:var(--accent);font-weight:400}
+.portfolio-heading>p{color:var(--muted);max-width:440px;line-height:1.7;margin:0 0 4px}
+.portfolio-filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 24px}
+.portfolio-filters button{border:1px solid var(--line);background:transparent;color:var(--ink);padding:9px 13px;border-radius:99px;cursor:pointer;font:inherit;font-size:12px}
+.portfolio-filters button.is-active,.portfolio-filters button:hover{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.portfolio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.portfolio-card{min-width:0;padding:22px;border:1px solid var(--line);background:var(--surface,var(--paper))}
+.portfolio-card[hidden]{display:none}
+.portfolio-card h3{font:500 22px/1.25 "Playfair Display",serif;margin:10px 0}
+.portfolio-card h3 a{color:var(--ink);text-decoration:none}
+.portfolio-card h3 a:hover{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:4px}
+.portfolio-card>p:not(.eyebrow){color:var(--muted);line-height:1.65;min-height:3.3em}
+.portfolio-card .text-link{font-size:12px}
+.portfolio-empty{grid-column:1/-1;padding:20px;border:1px dashed var(--line)}
+@media(max-width:760px){.portfolio-heading{grid-template-columns:1fr;gap:14px}.portfolio-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.portfolio-grid{grid-template-columns:1fr}.portfolio-card>p:not(.eyebrow){min-height:0}.portfolio-filters{gap:6px}.portfolio-filters button{padding:9px 11px}}

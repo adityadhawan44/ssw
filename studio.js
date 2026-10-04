@@ -15,9 +15,14 @@ if (!enrollPanel) {
 
 let client, currentUser, posts = [], comments = [], selectedState = 'all', selectedType = 'all', pendingFactor;
 const structuredFields={
+  'Article':[['format','Format'],['opening','Opening question or context'],['main_argument','Main argument'],['analysis','Analysis'],['conclusion','Conclusion'],['further_reading','Further reading']],
   'Case Analysis':[['case_citation','Citation'],['court','Court'],['year','Year'],['bench','Bench'],['subject','Subject'],['background','Background'],['facts','Facts'],['legal_questions','Legal questions'],['arguments','Arguments'],['reasoning','Court’s reasoning'],['judgment','Judgment'],['significance','Why it matters'],['later_developments','Later developments'],['primary_judgment_url','Primary judgment URL'],['related_cases','Related cases']],
   'Rights Guide':[['audience','Who this is for'],['topic','Topic'],['basic_rule','The basic rule'],['what_counts','What the right covers'],['law_summary','What the law says'],['practical_steps','What you can do'],['documents_to_keep','Documents to keep'],['common_questions','Common questions'],['official_resources','Official resources']],
   'Research':[['research_question','Research question'],['executive_summary','Executive summary'],['methodology','Methodology'],['key_findings','Key findings'],['evidence','Evidence'],['analysis','Analysis'],['limitations','Limitations'],['downloads','Downloads and data']],
+  'Speaking & Events':[['event_name','Event name'],['role','Your role'],['event_date','Date'],['venue','Venue or format'],['host','Host or organiser'],['description','Session description'],['recording_url','Recording URL'],['slides_url','Slides or materials URL']],
+  'Project & Initiative':[['project_name','Project name'],['role','Your role'],['timeframe','Timeframe'],['collaborators','Collaborators'],['challenge','Challenge addressed'],['approach','Approach'],['outcomes','Outcomes'],['impact','Impact'],['project_url','Project link']],
+  'Media & Press':[['outlet','Publication or outlet'],['format','Format'],['title','Headline or episode title'],['published_date','Publication date'],['author_or_host','Author or host'],['summary','Description'],['url','Coverage link'],['media_url','Audio or video URL']],
+  'Resource':[['resource_type','Resource type'],['audience','Who this is for'],['summary','What this resource helps with'],['instructions','How to use it'],['download_url','Download link'],['license','Usage or attribution']],
   'Opinion':[['opening','Opening'],['perspective','Perspective'],['authors_note','Author’s note'],['related_pieces','Related pieces']],
   'Essay':[['opening','Opening'],['perspective','Perspective'],['closing','Closing'],['authors_note','Author’s note']],
   'Announcement':[['issue_number','Issue number'],['introduction','Introduction'],['featured_case','Featured case'],['legal_development','Legal development'],['one_to_understand','One thing to understand'],['recommended_reading','Recommended reading'],['closing_note','Closing note'],['newsletter_subject','Newsletter subject'],['preview_text','Newsletter preview text']]
@@ -26,7 +31,7 @@ const structuredDrafts=new Map();
 const message = (text, kind = 'info') => { notice.textContent = text; notice.dataset.kind = kind; notice.hidden = false; };
 const safe = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 function readStructuredData(){return Object.fromEntries([...document.querySelectorAll('#studio-structured-fields [data-structured-field]')].map(input=>[input.dataset.structuredField,input.value.trim()]).filter(([,value])=>value));}
-function renderStructuredFields(type,data={}){const root=document.querySelector('#studio-structured-fields');if(!root)return;const fields=structuredFields[type]||[];root.hidden=!fields.length;root.innerHTML=fields.length?`<p class="eyebrow">${safe(type==='Announcement'?'THE BRIEF ISSUE DETAILS':`${type.toUpperCase()} DETAILS`)}</p><div class="studio-structured-grid">${fields.map(([name,label])=>`<label>${safe(label)}${name==='year'?`<input data-structured-field="${name}" inputmode="numeric" maxlength="4" value="${safe(data[name]||'')}">`:`<textarea data-structured-field="${name}" rows="${['case_citation','court','year','bench','subject','audience','topic','primary_judgment_url','issue_number','newsletter_subject','preview_text'].includes(name)?2:3}">${safe(data[name]||'')}</textarea>`}</label>`).join('')}</div>`:'';}
+function renderStructuredFields(type,data={}){const root=document.querySelector('#studio-structured-fields');if(!root)return;const fields=structuredFields[type]||[],urlFields=['primary_judgment_url','recording_url','slides_url','project_url','url','media_url','download_url'],dateFields=['event_date','published_date'],note=type==='Case Analysis'?'Use public judgments and remove confidential client or personal details before publishing.':type==='Project & Initiative'?'Describe your own contribution accurately and get permission before naming collaborators or sharing private project material.':type==='Media & Press'?'Link to the original coverage and confirm you have permission before embedding or reusing media.':type==='Resource'?'Check that you have permission to share each download and clearly state any reuse conditions.':'';root.hidden=!fields.length;root.innerHTML=fields.length?`<p class="eyebrow">${safe(type==='Announcement'?'THE BRIEF ISSUE DETAILS':`${type.toUpperCase()} DETAILS`)}</p>${note?`<p class="fine-print">${safe(note)}</p>`:''}<div class="studio-structured-grid">${fields.map(([name,label])=>`<label>${safe(label)}${name==='year'?`<input data-structured-field="${name}" inputmode="numeric" maxlength="4" value="${safe(data[name]||'')}">`:urlFields.includes(name)?`<input type="url" data-structured-field="${name}" placeholder="https://" value="${safe(data[name]||'')}">`:dateFields.includes(name)?`<input type="date" data-structured-field="${name}" value="${safe(data[name]||'')}">`:`<textarea data-structured-field="${name}" rows="${['case_citation','court','year','bench','subject','audience','topic','issue_number','newsletter_subject','preview_text'].includes(name)?2:3}">${safe(data[name]||'')}</textarea>`}</label>`).join('')}</div>`:'';}
 
 if (config.supabaseUrl && config.supabaseAnonKey) {
   try {
@@ -145,7 +150,8 @@ async function refresh() {
     ['Published', posts.filter(p=>p.status==='published').length], ['Drafts', posts.filter(p=>p.status==='draft').length],
     ['In review', posts.filter(p=>p.status==='in_review').length], ['Approved', posts.filter(p=>p.status==='approved').length],
     ['Scheduled', posts.filter(p=>p.status==='scheduled').length], ['Case files', posts.filter(p=>p.post_type==='Case Analysis'&&p.status!=='trashed').length],
-    ['Rights guides', posts.filter(p=>p.post_type==='Rights Guide'&&p.status!=='trashed').length]
+    ['Rights guides', posts.filter(p=>p.post_type==='Rights Guide'&&p.status!=='trashed').length],
+    ['Portfolio pieces', posts.filter(p=>['Speaking & Events','Project & Initiative','Media & Press','Resource'].includes(p.post_type)&&p.status!=='trashed').length]
   ].map(([label,count])=>`<div><strong>${count}</strong><span>${label}</span></div>`).join('');
   const recent=posts.slice(0,5);
   document.querySelector('#studio-recent > div').innerHTML=recent.length?recent.map(post=>`<article class="studio-recent-row"><span class="studio-status ${safe(post.status)}">${safe(post.status)}</span><strong>${safe(post.title||'Untitled')}</strong><small>${safe(post.post_type)} · ${new Date(post.updated_at).toLocaleDateString()}</small></article>`).join(''):'<p class="muted">Your saved work will appear here.</p>';
@@ -158,7 +164,7 @@ async function renderPosts() {
 }
 document.querySelectorAll('.studio-filters button').forEach(button=>button.addEventListener('click',()=>{selectedState=button.dataset.state;document.querySelectorAll('.studio-filters button').forEach(b=>b.classList.toggle('is-active',b===button));renderPosts();}));
 document.querySelectorAll('.studio-nav a').forEach(link=>link.addEventListener('click',event=>{if(link.dataset.workspace){event.preventDefault();if(link.dataset.workspace==='dashboard'||link.dataset.workspace==='content')showWorkspace(link.dataset.workspace);return;}selectedType=link.dataset.contentType||'all';showWorkspace('content');renderPosts();}));
-document.querySelectorAll('[data-new-type]').forEach(button=>button.addEventListener('click',()=>{openEditor();document.querySelector('#studio-post-form').elements.post_type.value=button.dataset.newType;}));
+document.querySelectorAll('[data-new-type]').forEach(button=>button.addEventListener('click',()=>{openEditor();const select=document.querySelector('#studio-post-form').elements.post_type;select.value=button.dataset.newType;select.dispatchEvent(new Event('change',{bubbles:true}));}));
 document.querySelector('#studio-new')?.addEventListener('click',()=>openEditor());
 document.querySelector('#studio-cancel')?.addEventListener('click',()=>editor.hidden=true);
 document.querySelector('#studio-post-form [name=status]')?.addEventListener('change',event=>{document.querySelector('#schedule-field').hidden=event.target.value!=='scheduled';});
@@ -169,7 +175,11 @@ document.querySelector('#studio-post-form [name=post_type]')?.addEventListener('
     'Research':'## Research question\n\n## Executive summary\n\n## Methodology\n\n## Key findings\n\n## Evidence and analysis\n\n## Limitations',
     'Opinion':'## Opening\n\n## Perspective\n\n## Author’s note',
     'Essay':'## Opening\n\n## Perspective\n\n## Closing',
-    'Announcement':'## Introduction\n\n## Featured case\n\n## Legal development\n\n## One thing to understand\n\n## Recommended reading\n\n## Closing note'
+    'Announcement':'## Introduction\n\n## Featured case\n\n## Legal development\n\n## One thing to understand\n\n## Recommended reading\n\n## Closing note',
+    'Speaking & Events':'## Event\n\n## My role\n\n## Session overview\n\n## Recording and materials',
+    'Project & Initiative':'## The challenge\n\n## My role\n\n## What we did\n\n## Outcomes and impact',
+    'Media & Press':'## Coverage\n\n## Summary\n\n## Link and media',
+    'Resource':'## Who this is for\n\n## How to use this resource\n\n## Download'
   };
   const body=editorForm.elements.body;
   if(!body.value.trim()&&outlines[event.target.value]&&!structuredFields[event.target.value]){body.value=outlines[event.target.value];updateChecklist();}
@@ -182,11 +192,14 @@ function openEditor(post) {
   form.elements.sources.value=(post?.sources||[]).map(s=>typeof s==='string'?s:s.url).join('\n'); form.elements.status.value=post?.status==='trashed'?'draft':(post?.status||'draft');
   for(const key of ['author_id','seo_title','seo_description','canonical_url','last_reviewed_at','correction_note'])if(form.elements[key])form.elements[key].value=post?.[key]||'';
   if(form.elements.featured)form.elements.featured.checked=Boolean(post?.featured);
-  let saved=null;if(!post){try{saved=JSON.parse(localStorage.getItem(autoSaveKey())||'null');if(saved)for(const name of ['title','subtitle','slug','post_type','body','tags','sources'])if(saved[name]!==undefined)form.elements[name].value=saved[name];}catch{}}
+  let saved=null;try{saved=JSON.parse(localStorage.getItem(autoSaveKey())||'null');}catch{}
+  if(saved)for(const name of ['title','subtitle','slug','post_type','body','tags','sources','status','scheduled_at','author_id','seo_title','seo_description','canonical_url','last_reviewed_at','correction_note'])if(saved[name]!==undefined&&form.elements[name])form.elements[name].value=saved[name];
+  if(form.elements.featured&&saved?.featured!==undefined)form.elements.featured.checked=Boolean(saved.featured);
   form.dataset.structuredType=form.elements.post_type.value;renderStructuredFields(form.elements.post_type.value,saved?.structured_data||post?.structured_data||{});
-  if(post?.scheduled_at){const d=new Date(post.scheduled_at);form.elements.scheduled_at.value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
+  const scheduledAt=saved?.scheduled_at||post?.scheduled_at;if(scheduledAt){const d=new Date(scheduledAt);form.elements.scheduled_at.value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
   document.querySelector('#studio-editor-title').textContent=post?'Edit post':'New post'; document.querySelector('#schedule-field').hidden=form.elements.status.value!=='scheduled'; editor.hidden=false; editor.scrollIntoView({behavior:'smooth',block:'start'});
   updateChecklist();
+  if(saved?.saved_at){const recoveredAt=new Date(saved.saved_at);if(!Number.isNaN(recoveredAt.getTime()))message(`Recovered unsaved changes from ${recoveredAt.toLocaleString()}.`,'info');}
 }
 function mountCMSNavigation() {
   const nav=document.querySelector('.studio-nav');
@@ -271,14 +284,18 @@ function updateChecklist(){
   document.querySelector('#studio-checklist').innerHTML=`<p class="eyebrow">PUBLICATION CHECKLIST</p><ul>${checks.map(([label,value])=>`<li class="${value?'is-complete':'is-pending'}"><span>${value?'✓':'○'}</span>${label}</li>`).join('')}</ul>`;
 }
 let autosaveTimer;
-editorForm?.addEventListener('input',()=>{
+function saveLocalDraft(){
+  const names=['title','subtitle','slug','post_type','body','tags','sources','status','scheduled_at','author_id','seo_title','seo_description','canonical_url','last_reviewed_at','correction_note'];
+  const snapshot=Object.fromEntries(names.filter(name=>editorForm.elements[name]).map(name=>[name,editorForm.elements[name].value]));snapshot.structured_data=readStructuredData();snapshot.featured=Boolean(editorForm.elements.featured?.checked);snapshot.saved_at=new Date().toISOString();
+  try{localStorage.setItem(autoSaveKey(),JSON.stringify(snapshot));message('Draft saved on this device.');}catch{message('This browser could not save a local backup. Save the post to keep your changes.','error');}
+}
+function queueLocalDraft(){
   updateChecklist(); clearTimeout(autosaveTimer);
-  autosaveTimer=setTimeout(()=>{
-    const snapshot=Object.fromEntries(['title','subtitle','slug','post_type','body','tags','sources'].map(name=>[name,editorForm.elements[name].value]));snapshot.structured_data=readStructuredData();
-    localStorage.setItem(autoSaveKey(),JSON.stringify(snapshot));
-    message('Draft saved on this device.');
-  },800);
-});
+  autosaveTimer=setTimeout(saveLocalDraft,500);
+}
+editorForm?.addEventListener('input',queueLocalDraft);
+editorForm?.addEventListener('change',queueLocalDraft);
+window.addEventListener('pagehide',()=>{if(!editor.hidden)saveLocalDraft();});
 document.querySelectorAll('.studio-editor-tools [data-insert]').forEach(button=>button.addEventListener('click',()=>{
   const area=editorForm.elements.body,template=button.dataset.insert,start=area.selectionStart,end=area.selectionEnd,selected=area.value.slice(start,end)||'text',parts=template.split('|');
   const before=parts[0]||'',after=parts[1]||'',insert=before+selected+after;
@@ -320,7 +337,9 @@ document.querySelector('#studio-post-form')?.addEventListener('submit',async eve
   const oldRecord=posts.find(post=>post.id===id);
   const authorOption=editorForm.elements.author_id?.selectedOptions?.[0];
   const structuredData=readStructuredData();
-  const record={slug,title:f.get('title').trim(),subtitle:f.get('subtitle').trim(),post_type:f.get('post_type'),body:f.get('body').trim(),structured_data:structuredData,tags:f.get('tags').split(',').map(s=>s.trim()).filter(Boolean),sources:f.get('sources').split('\n').map(s=>s.trim()).filter(Boolean).map(url=>({url})),status:f.get('status'),scheduled_at:f.get('status')==='scheduled'?new Date(scheduleValue).toISOString():null,published_at:f.get('status')==='published'?(oldRecord?.published_at||new Date().toISOString()):null,author_id:f.get('author_id')||null,author_name:authorOption?.value?authorOption.textContent:'Shweta',seo_title:f.get('seo_title')||'',seo_description:f.get('seo_description')||'',canonical_url:f.get('canonical_url')||'',last_reviewed_at:f.get('last_reviewed_at')||null,correction_note:f.get('correction_note')||'',featured:editorForm.elements.featured?.checked||false};
+  const sourceUrls=f.get('sources').split('\n').map(s=>s.trim()).filter(Boolean).map(url=>({url}));
+  for(const [key,value] of Object.entries(structuredData)){if(!key.endsWith('_url')&&key!=='url')continue;try{const url=new URL(value);if(['http:','https:'].includes(url.protocol)&&!sourceUrls.some(item=>item.url===url.href))sourceUrls.push({url:url.href,label:key.replace(/_/g,' ')});}catch{}}
+  const record={slug,title:f.get('title').trim(),subtitle:f.get('subtitle').trim(),post_type:f.get('post_type'),body:f.get('body').trim(),structured_data:structuredData,tags:f.get('tags').split(',').map(s=>s.trim()).filter(Boolean),sources:sourceUrls,status:f.get('status'),scheduled_at:f.get('status')==='scheduled'?new Date(scheduleValue).toISOString():null,published_at:f.get('status')==='published'?(oldRecord?.published_at||new Date().toISOString()):null,author_id:f.get('author_id')||null,author_name:authorOption?.value?authorOption.textContent:'Shweta',seo_title:f.get('seo_title')||'',seo_description:f.get('seo_description')||'',canonical_url:f.get('canonical_url')||'',last_reviewed_at:f.get('last_reviewed_at')||null,correction_note:f.get('correction_note')||'',featured:editorForm.elements.featured?.checked||false};
   const hasContent=Boolean(record.body||Object.keys(record.structured_data).length);
   if(['in_review','approved','scheduled','published'].includes(record.status)&&(!record.subtitle||!hasContent||!record.sources.length)){message('Before sending this to review or publishing, add an excerpt, article content, and at least one source. You can still save it as a draft.','error');return;}
   const result=id?await client.from('posts').update(record).eq('id',id):await client.from('posts').insert(record);

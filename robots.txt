@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /studio
 
-Sitemap: https://shweta-states.vercel.app/sitemap.xml
+Sitemap: https://ssw-beryl.vercel.app/sitemap.xml
