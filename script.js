@@ -139,12 +139,13 @@
   });
 
   const progress = $('#reading-progress');
-  if (progress && $('[data-reading]')) {
+  if (progress) {
     const update = () => {
       const range = document.documentElement.scrollHeight - window.innerHeight;
-      progress.style.width = `${range > 0 ? Math.min(100, Math.max(0, window.scrollY / range * 100)) : 0}%`;
+      progress.style.width = `${$('[data-reading]') && range > 0 ? Math.min(100, Math.max(0, window.scrollY / range * 100)) : 0}%`;
     };
-    window.addEventListener('scroll', update, { passive: true }); window.addEventListener('resize', update); update();
+    window.addEventListener('scroll', update, { passive: true }); window.addEventListener('resize', update);
+    new MutationObserver(update).observe(document.querySelector('main') || document.body,{childList:true,subtree:true});update();
   }
   document.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openDialog('.search-dialog'); setTimeout(() => searchInput?.focus(), 40); }

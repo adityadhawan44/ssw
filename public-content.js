@@ -14,6 +14,38 @@
   };
   const routeFor = post => `/post?slug=${encodeURIComponent(post.slug)}`;
   const summaryFor = post => post.subtitle || '';
+  const readingTimeFor = text => Math.max(1, Math.ceil(String(text || '').trim().split(/\s+/).filter(Boolean).length / 220));
+  const dateFor = value => value ? new Date(value).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) : '';
+  const slugHeading = value => String(value).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'section';
+  function addArticleContents(root){
+    const copy=root.querySelector('.published-copy'),body=root.querySelector('.article-body');if(!copy||!body)return;
+    const headings=[...copy.querySelectorAll('h2,h3')];const used=new Set();
+    headings.forEach((heading,index)=>{let id=slugHeading(heading.textContent),base=id,suffix=2;while(used.has(id))id=`${base}-${suffix++}`;used.add(id);heading.id=`article-${id}`;});
+    if(headings.length<3)return;
+    const aside=root.querySelector('.article-toc-placeholder')||document.createElement('aside');aside.className='article-toc';aside.setAttribute('aria-label','In this article');
+    aside.innerHTML=`<p class="eyebrow">IN THIS ARTICLE</p><nav>${headings.map((heading,index)=>`<a class="${heading.tagName==='H3'?'is-subheading':''}" href="#${heading.id}">${esc(heading.textContent)}</a>`).join('')}</nav>`;
+    body.parentElement?.classList.add('article-reading-layout');if(!aside.isConnected)body.parentElement?.insertBefore(aside,body);
+  }
+  function relatedArticles(post,allPosts){
+    const tags=new Set((post.tags||[]).map(tag=>String(tag).toLowerCase()));
+    return allPosts.filter(item=>item.id!==post.id&&item.slug).map(item=>({item,score:(item.tags||[]).filter(tag=>tags.has(String(tag).toLowerCase())).length})).sort((a,b)=>b.score-a.score).slice(0,3).map(({item})=>item);
+  }
+  function installArticleActions(root,post){
+    const actions=root.querySelector('.article-tools');if(!actions)return;
+    actions.addEventListener('click',async event=>{
+      const button=event.target.closest('[data-article-action]');if(!button)return;
+      const action=button.dataset.articleAction,url=location.href;
+      if(action==='print'){window.print();return;}
+      if(action==='copy'){
+        try{await navigator.clipboard.writeText(url);button.textContent='Link copied';setTimeout(()=>button.textContent='Copy link',1800);}
+        catch{window.prompt('Copy this link',url);}return;
+      }
+      if(action==='share'){
+        if(navigator.share){try{await navigator.share({title:post.title,text:post.subtitle||'Read on SHWETA',url});}catch(error){if(error.name!=='AbortError')window.prompt('Copy this link',url);}}
+        else {try{await navigator.clipboard.writeText(url);button.textContent='Link copied';setTimeout(()=>button.textContent='Share',1800);}catch{window.prompt('Copy this link',url);}}
+      }
+    });
+  }
   const publicDbPromise = (async () => {
     if (!config.supabaseUrl || !config.supabaseAnonKey) return null;
     try {
@@ -118,7 +150,8 @@
     if(!post) { root.innerHTML='<p class="muted">This publication is unavailable or is no longer published.</p>'; return; }
     const {data:{user:reader}}=await window.SHWETA_PUBLIC_DB.auth.getUser();
     if(!reader) {
-      root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle||'A SHWETA publication')}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}</div></header><div class="article-body"><section class="reader-access-card"><p class="eyebrow">A FREE READER ACCOUNT</p><h2>Continue with the complete article.</h2><p>Create a free account or sign in to read the full publication, case analysis and rights guide.</p><a class="button-primary" href="/sign-in?next=${encodeURIComponent(location.pathname+location.search)}">Sign in or create an account</a></section></div></article>`;
+      root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle||'A SHWETA publication')}</p><div class="reading-byline">BY ${esc(post.author_name||'SHWETA')} <span>·</span> ${dateFor(post.published_at)}</div><div class="article-tools" aria-label="Article actions"><button type="button" data-article-action="share">Share</button><button type="button" data-article-action="copy">Copy link</button><button type="button" data-article-action="print">Print</button></div></header><div class="article-body"><section class="reader-access-card"><p class="eyebrow">A FREE READER ACCOUNT</p><h2>Continue with the complete article.</h2><p>Create a free account or sign in to read the full publication, case analysis and rights guide.</p><a class="button-primary" href="/sign-in?next=${encodeURIComponent(location.pathname+location.search)}">Sign in or create an account</a></section></div></article>`;
+      installArticleActions(root,post);
       document.title=`${post.seo_title||post.title} · SHWETA`;
       const guestDescription=document.querySelector('meta[name="description"]');if(guestDescription&&post.seo_description)guestDescription.content=post.seo_description;
       const guestCanonical=document.querySelector('link[rel="canonical"]');if(guestCanonical&&post.canonical_url)guestCanonical.href=post.canonical_url;
@@ -131,7 +164,10 @@
     const safeSources=(post.sources||[]).map(source=>typeof source==='string'?{url:source,label:source}:{url:source.url,label:source.label||source.url}).filter(source=>/^https?:\/\//i.test(source.url||''));
     const structuredMarkdown=Object.entries(post.structured_data||{}).map(([key,value])=>`## ${key.replace(/_/g,' ')}\n\n${value}`).join('\n\n');
     const paragraphs=renderBody([structuredMarkdown,post.body].filter(Boolean).join('\n\n'));
-    root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle)}</p><div class="reading-byline">BY SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}<button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save this piece">♡ Save</button></div></header><div class="article-body"><div class="published-copy">${paragraphs}</div><aside class="legal-note"><strong>Information, not legal advice.</strong> This publication is educational and does not establish a lawyer–client relationship. Check current law and primary sources before relying on it.</aside>${safeSources.length?`<section class="sources"><p class="eyebrow">SOURCES & FURTHER READING</p><ul>${safeSources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.label)} ↗</a></li>`).join('')}</ul></section>`:''}<section class="reader-interactions" aria-label="Reader responses"><h2>Join the conversation</h2><p class="fine-print">Please do not post private case details or sensitive personal information. Comments are reviewed before they appear.</p><div class="reader-auth"></div><div class="reader-actions" hidden><button type="button" class="button-primary" id="reader-like">Like</button><button type="button" class="tool-button" id="reader-bookmark">Save to my account</button><button type="button" class="tool-button" id="reader-signout">Sign out</button></div><p class="reader-status" role="status"></p><form class="reader-comment-form" hidden><label for="reader-comment">Add a comment</label><textarea id="reader-comment" maxlength="4000" required rows="4"></textarea><button class="button-primary" type="submit">Submit for review</button></form><div class="reader-comments"><h3>Approved comments</h3><div class="reader-comment-list"></div></div></section></div></article>`;
+    const readTime=readingTimeFor([post.subtitle,post.body,...Object.values(post.structured_data||{})].join(' '));
+    const related=relatedArticles(post,posts);
+    root.innerHTML=`<article class="reading-page wrap" data-reading><div class="breadcrumbs"><a href="/journal">Journal</a><span> / </span>${esc(kindFor(post.post_type))}</div><header class="reading-header"><p class="eyebrow">${esc(kindFor(post.post_type).toUpperCase())} · SHWETA</p><h1>${esc(post.title)}</h1><p class="reading-deck">${esc(post.subtitle)}</p><div class="reading-byline">BY SHWETA <span>·</span> ${dateFor(post.published_at)} <span>·</span> ${readTime} MIN READ <button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save this piece">♡ Save</button></div><div class="article-tools" aria-label="Article actions"><button type="button" data-article-action="share">Share</button><button type="button" data-article-action="copy">Copy link</button><button type="button" data-article-action="print">Print</button></div></header><div class="article-reading-layout"><aside class="article-toc article-toc-placeholder" aria-label="Reading details"><p class="eyebrow">READING DETAILS</p><p>${readTime} minute read</p>${post.updated_at?`<p>Updated ${dateFor(post.updated_at)}</p>`:''}${post.last_reviewed_at?`<p>Reviewed ${dateFor(post.last_reviewed_at)}</p>`:''}</aside><div class="article-body"><div class="published-copy">${paragraphs}</div><aside class="legal-note"><strong>Information, not legal advice.</strong> This publication is educational and does not establish a lawyer–client relationship. Check current law and primary sources before relying on it.</aside>${safeSources.length?`<section class="sources"><p class="eyebrow">SOURCES & FURTHER READING</p><ul>${safeSources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.label)} ↗</a></li>`).join('')}</ul></section>`:''}${related.length?`<section class="read-next"><p class="eyebrow">CONTINUE READING</p>${related.map(item=>`<a href="${routeFor(item)}"><span>${esc(kindFor(item.post_type).toUpperCase())}</span><strong>${esc(item.title)}</strong><i>↗</i></a>`).join('')}</section>`:''}<section class="reader-interactions" aria-label="Reader responses"><h2>Join the conversation</h2><p class="fine-print">Please do not post private case details or sensitive personal information. Comments are reviewed before they appear.</p><div class="reader-auth"></div><div class="reader-actions" hidden><button type="button" class="button-primary" id="reader-like">Like</button><button type="button" class="tool-button" id="reader-bookmark">Save to my account</button><button type="button" class="tool-button" id="reader-signout">Sign out</button></div><p class="reader-status" role="status"></p><form class="reader-comment-form" hidden><label for="reader-comment">Add a comment</label><textarea id="reader-comment" maxlength="4000" required rows="4"></textarea><button class="button-primary" type="submit">Submit for review</button></form><div class="reader-comments"><h3>Approved comments</h3><div class="reader-comment-list"></div></div></section></div></div></article>`;
+    addArticleContents(root);installArticleActions(root,post);
     document.title=`${post.seo_title||post.title} · SHWETA`;
     const metaDescription=document.querySelector('meta[name="description"]');if(metaDescription&&post.seo_description)metaDescription.content=post.seo_description;
     const canonical=document.querySelector('link[rel="canonical"]');if(canonical&&post.canonical_url)canonical.href=post.canonical_url;

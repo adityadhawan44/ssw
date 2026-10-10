@@ -91,3 +91,20 @@ body.reader-wall-active{overflow:hidden}.reader-wall{display:none}body.reader-wa
 .correction-note{padding:1.1rem 1.25rem;margin:0 0 1.5rem;border-left:3px solid var(--accent);background:var(--soft)}
 .correction-note p{margin:.35rem 0 0}
 @media(max-width:680px){.studio-metadata-fields,.studio-library-form,.studio-settings-card{grid-template-columns:1fr}.studio-library-form h3,.studio-settings-card h3,.studio-library-form [name=notes],.studio-library-form [name=bio],.studio-library-form [name=details],.studio-library-form [name=correction_note],.studio-library-form [name=value],.studio-settings-card p,.studio-library-form button{grid-column:1}}
+
+/* A calmer, more useful long-form reading experience. */
+.article-tools{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+.article-tools button{border:1px solid var(--line);background:transparent;color:var(--ink);padding:8px 12px;font:10px var(--sans);cursor:pointer}
+.article-tools button:hover,.article-tools button:focus-visible{border-color:var(--accent);color:var(--accent)}
+.article-reading-layout{display:grid;grid-template-columns:190px minmax(0,var(--measure));gap:54px;justify-content:center;padding-top:34px}
+.article-reading-layout .article-body{min-width:0}
+.article-toc{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow:auto;padding:8px 0 16px;border-top:1px solid var(--line)}
+.article-toc .eyebrow{margin:0 0 12px;color:var(--accent)}
+.article-toc nav{display:grid;gap:9px}
+.article-toc nav a,.article-toc>p:not(.eyebrow){font-size:10px;line-height:1.5;color:var(--muted)}
+.article-toc nav a:hover,.article-toc nav a:focus-visible{color:var(--accent)}
+.article-toc nav a.is-subheading{padding-left:11px;font-size:9px}
+.article-toc-placeholder>p:not(.eyebrow){margin:0 0 8px}
+.article-reading-layout .published-copy h2,.article-reading-layout .published-copy h3{scroll-margin-top:24px}
+@media(max-width:760px){.article-reading-layout{grid-template-columns:minmax(0,1fr);gap:14px;padding-top:22px}.article-toc{position:static;max-height:none;padding:13px 0;border-bottom:1px solid var(--line)}.article-toc nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}.article-toc nav a.is-subheading{padding-left:0}.article-toc-placeholder{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.article-toc-placeholder .eyebrow{width:100%}}
+@media print{.site-header,.site-footer,.progress-track,.article-tools,.article-toc,.reader-interactions,.legal-note,.save-button{display:none!important}body{background:#fff!important;color:#111!important}.reading-page{width:100%;padding:0}.article-reading-layout{display:block;padding:0}.article-reading-layout .article-body{max-width:none;font-size:11pt}.reading-header{padding-top:0}}
