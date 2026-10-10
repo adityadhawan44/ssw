@@ -68,11 +68,18 @@
   ];
   function renderPortfolio(posts){
     const grid=document.querySelector('#portfolio-grid');if(!grid)return;
-    const available=portfolioGroups.filter(group=>posts.some(post=>group.types.includes(post.post_type)));
+    const starterWork=[
+      {title:'The shape of freedom',subtitle:'A starting point for exploring law, rights and independent thought.',post_type:'Article',href:'/journal/shape-of-freedom'},
+      {title:'Vishaka v. State of Rajasthan',subtitle:'A landmark case file on workplace safety and constitutional rights.',post_type:'Case Analysis',href:'/casebook/vishaka-v-state-of-rajasthan'},
+      {title:'Stridhan, explained',subtitle:'A practical guide to a woman’s rights over her own property.',post_type:'Rights Guide',href:'/journal/stridhan-explained'},
+      {title:'Independence is not a single moment',subtitle:'A perspective on the work of freedom in everyday life.',post_type:'Opinion',href:'/perspective/independence-is-not-a-single-moment'}
+    ];
+    const portfolioPosts=posts.length?posts:starterWork;
+    const available=portfolioGroups.filter(group=>portfolioPosts.some(post=>group.types.includes(post.post_type)));
     const filters=document.querySelector('#portfolio-filters');
     if(filters){filters.innerHTML=`<button type="button" class="is-active" data-portfolio-filter="all" aria-pressed="true">Everything</button>${available.map(group=>`<button type="button" data-portfolio-filter="${esc(group.label)}" aria-pressed="false">${esc(group.label)}</button>`).join('')}`;filters.addEventListener('click',event=>{const button=event.target.closest('[data-portfolio-filter]');if(!button)return;filters.querySelectorAll('button').forEach(item=>{const active=item===button;item.classList.toggle('is-active',active);item.setAttribute('aria-pressed',String(active));});grid.querySelectorAll('[data-portfolio-card]').forEach(card=>{card.hidden=button.dataset.portfolioFilter!=='all'&&card.dataset.portfolioCard!==button.dataset.portfolioFilter;});},{once:true});}
-    const visible=posts.filter(post=>post.slug&&portfolioGroups.some(group=>group.types.includes(post.post_type))).slice(0,24);
-    grid.innerHTML=visible.length?visible.map(post=>{const group=portfolioGroups.find(item=>item.types.includes(post.post_type));return `<article class="portfolio-card" data-portfolio-card="${esc(group.label)}"><p class="eyebrow">${esc(group.label)}</p><h3><a href="${routeFor(post)}">${esc(post.title)}</a></h3><p>${esc(summaryFor(post)||'Explore this publication and its key details.')}</p><a class="text-link" href="${routeFor(post)}">Explore <span aria-hidden="true">↗</span></a></article>`;}).join(''):'<p class="muted portfolio-empty">Published work across writing, research, events and projects will appear here.</p>';
+    const visible=portfolioPosts.filter(post=>(post.slug||post.href)&&portfolioGroups.some(group=>group.types.includes(post.post_type))).slice(0,24);
+    grid.innerHTML=visible.length?visible.map(post=>{const group=portfolioGroups.find(item=>item.types.includes(post.post_type)),href=post.href||routeFor(post);return `<article class="portfolio-card" data-portfolio-card="${esc(group.label)}"><p class="eyebrow">${esc(group.label)}</p><h3><a href="${esc(href)}">${esc(post.title)}</a></h3><p>${esc(summaryFor(post)||'Explore this publication and its key details.')}</p><a class="text-link" href="${esc(href)}">Explore <span aria-hidden="true">↗</span></a></article>`;}).join(''):'<p class="muted portfolio-empty">Published work across writing, research, events and projects will appear here.</p>';
   }
 
   livePostsPromise.then(posts => {
@@ -96,7 +103,7 @@
           if(existing){existing.dataset.cmsFeatured='';existing.href=routeFor(featured);const small=existing.querySelector('small');if(small)small.textContent=`${kindFor(featured.post_type).toUpperCase()} · FEATURED`;if(first&&existing!==first)container.insertBefore(existing,first);}
           else {const row=`<a class="index-row" data-cms-featured href="${routeFor(featured)}"><span>01</span><small>${esc(kindFor(featured.post_type).toUpperCase())} · FEATURED</small><strong>${esc(featured.title)}</strong><i>↗</i></a>`;if(first)first.insertAdjacentHTML('beforebegin',row);else container.insertAdjacentHTML('beforeend',row);}
         }
-        const latest=posts.filter(post=>post.id!==featured?.id).slice(0,4);
+        const latest=posts.filter(post=>post.id!==featured?.id&&!knownTitles.has(post.title)).slice(0,4);
         container.insertAdjacentHTML('beforeend',latest.map((post,i)=>`<a class="index-row" href="${routeFor(post)}"><span>${String(i+5).padStart(2,'0')}</span><small>${esc(kindFor(post.post_type).toUpperCase())}</small><strong>${esc(post.title)}</strong><i>↗</i></a>`).join(''));
       }
     }

@@ -144,7 +144,8 @@ async function refresh() {
     ['Published', posts.filter(p=>p.status==='published').length], ['Drafts', posts.filter(p=>p.status==='draft').length],
     ['In review', posts.filter(p=>p.status==='in_review').length], ['Approved', posts.filter(p=>p.status==='approved').length],
     ['Scheduled', posts.filter(p=>p.status==='scheduled').length], ['Case files', posts.filter(p=>p.post_type==='Case Analysis'&&p.status!=='trashed').length],
-    ['Rights guides', posts.filter(p=>p.post_type==='Rights Guide'&&p.status!=='trashed').length]
+    ['Rights guides', posts.filter(p=>p.post_type==='Rights Guide'&&p.status!=='trashed').length],
+    ['Portfolio items', posts.filter(p=>['Speaking & Events','Project & Initiative','Media & Press','Resource'].includes(p.post_type)&&p.status!=='trashed').length]
   ].map(([label,count])=>`<div><strong>${count}</strong><span>${label}</span></div>`).join('');
   const recent=posts.slice(0,5);
   document.querySelector('#studio-recent > div').innerHTML=recent.length?recent.map(post=>`<article class="studio-recent-row"><span class="studio-status ${safe(post.status)}">${safe(post.status)}</span><strong>${safe(post.title||'Untitled')}</strong><small>${safe(post.post_type)} · ${new Date(post.updated_at).toLocaleDateString()}</small></article>`).join(''):'<p class="muted">Your saved work will appear here.</p>';
@@ -168,7 +169,11 @@ document.querySelector('#studio-post-form [name=post_type]')?.addEventListener('
     'Research':'## Research question\n\n## Executive summary\n\n## Methodology\n\n## Key findings\n\n## Evidence and analysis\n\n## Limitations',
     'Opinion':'## Opening\n\n## Perspective\n\n## Author’s note',
     'Essay':'## Opening\n\n## Perspective\n\n## Closing',
-    'Announcement':'## Introduction\n\n## Featured case\n\n## Legal development\n\n## One thing to understand\n\n## Recommended reading\n\n## Closing note'
+    'Announcement':'## Introduction\n\n## Featured case\n\n## Legal development\n\n## One thing to understand\n\n## Recommended reading\n\n## Closing note',
+    'Speaking & Events':'## Event\n\n## Role\n\n## Date and location\n\n## Key themes\n\n## Recap or recording',
+    'Project & Initiative':'## Purpose\n\n## Who it serves\n\n## My contribution\n\n## Outcomes\n\n## Partners and resources',
+    'Media & Press':'## Publication or outlet\n\n## Date\n\n## Summary\n\n## Coverage link',
+    'Resource':'## Who this resource is for\n\n## How to use it\n\n## Key information\n\n## Official links'
   };
   const body=editorForm.elements.body;
   if(!body.value.trim()&&outlines[event.target.value]&&!structuredFields[event.target.value]){body.value=outlines[event.target.value];updateChecklist();}
