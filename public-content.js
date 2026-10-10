@@ -1,7 +1,7 @@
 (() => {
   const config = window.SHWETA_STUDIO_CONFIG || {};
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective','Announcement':'The Brief'}[type] || 'Article');
+  const kindFor = type => ({'Case Analysis':'Case','Rights Guide':'Rights guide','Research':'Research','Opinion':'Perspective','Essay':'Perspective','Announcement':'The Brief','Speaking & Events':'Speaking & events','Project & Initiative':'Project','Media & Press':'Media & press','Resource':'Resource'}[type] || 'Article');
   const renderBody = value => {
     const inline = text => esc(text).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" rel="noopener noreferrer">$1</a>');
     return String(value||'').trim().split(/\n{2,}/).filter(Boolean).map(block=>{
@@ -55,7 +55,28 @@
     return `<article class="story-row" data-item data-category="${esc((post.tags||[]).join(' ').toLowerCase())}" data-search="${esc((post.title+' '+summary+' '+label).toLowerCase())}"><div class="story-meta"><span>${label}</span><span>NEW</span></div><div class="story-copy"><a href="${href}"><h2>${esc(post.title)}</h2></a><p>${esc(summary)}</p><div class="byline">SHWETA <span>·</span> ${post.published_at?new Date(post.published_at).toLocaleDateString():''}</div></div><button class="save-button" data-save="post:${esc(post.slug)}" aria-label="Save ${esc(post.title)}">♡</button></article>`;
   }
 
+  const portfolioGroups=[
+    {label:'Writing & essays',types:['Article','Opinion','Essay']},
+    {label:'Legal case studies',types:['Case Analysis']},
+    {label:'Research & reports',types:['Research']},
+    {label:'Rights guides',types:['Rights Guide']},
+    {label:'Speaking & events',types:['Speaking & Events']},
+    {label:'Projects & initiatives',types:['Project & Initiative']},
+    {label:'Media & press',types:['Media & Press']},
+    {label:'Resources',types:['Resource']},
+    {label:'Updates & announcements',types:['Announcement']}
+  ];
+  function renderPortfolio(posts){
+    const grid=document.querySelector('#portfolio-grid');if(!grid)return;
+    const available=portfolioGroups.filter(group=>posts.some(post=>group.types.includes(post.post_type)));
+    const filters=document.querySelector('#portfolio-filters');
+    if(filters){filters.innerHTML=`<button type="button" class="is-active" data-portfolio-filter="all" aria-pressed="true">Everything</button>${available.map(group=>`<button type="button" data-portfolio-filter="${esc(group.label)}" aria-pressed="false">${esc(group.label)}</button>`).join('')}`;filters.addEventListener('click',event=>{const button=event.target.closest('[data-portfolio-filter]');if(!button)return;filters.querySelectorAll('button').forEach(item=>{const active=item===button;item.classList.toggle('is-active',active);item.setAttribute('aria-pressed',String(active));});grid.querySelectorAll('[data-portfolio-card]').forEach(card=>{card.hidden=button.dataset.portfolioFilter!=='all'&&card.dataset.portfolioCard!==button.dataset.portfolioFilter;});},{once:true});}
+    const visible=posts.filter(post=>post.slug&&portfolioGroups.some(group=>group.types.includes(post.post_type))).slice(0,24);
+    grid.innerHTML=visible.length?visible.map(post=>{const group=portfolioGroups.find(item=>item.types.includes(post.post_type));return `<article class="portfolio-card" data-portfolio-card="${esc(group.label)}"><p class="eyebrow">${esc(group.label)}</p><h3><a href="${routeFor(post)}">${esc(post.title)}</a></h3><p>${esc(summaryFor(post)||'Explore this publication and its key details.')}</p><a class="text-link" href="${routeFor(post)}">Explore <span aria-hidden="true">↗</span></a></article>`;}).join(''):'<p class="muted portfolio-empty">Published work across writing, research, events and projects will appear here.</p>';
+  }
+
   livePostsPromise.then(posts => {
+    renderPortfolio(posts);
     const path=location.pathname.replace(/\/$/,'') || '/';
     const targets = {'/journal':['Article','Opinion','Essay'],'/perspective':['Opinion','Essay'],'/casebook':['Case Analysis'],'/rights':['Rights Guide'],'/research':['Research']};
     const target=targets[path];
