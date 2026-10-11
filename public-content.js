@@ -77,7 +77,7 @@
     }
   })();
   window.SHWETA_PUBLIC_CONTENT_READY = livePostsPromise;
-  window.SHWETA_PUBLIC_SEARCH_ITEMS = livePostsPromise.then(posts => posts.map(post => ({ id:`post:${post.slug}`, kind:kindFor(post.post_type), title:post.title, summary:summaryFor(post), topic:(post.tags||[]).join(' '), url:routeFor(post) })));
+  window.SHWETA_PUBLIC_SEARCH_ITEMS = livePostsPromise.then(posts => posts.map(post => ({ id:`post:${post.slug}`, kind:kindFor(post.post_type), title:post.title, summary:summaryFor(post), topic:(post.tags||[]).join(' '), searchText:post.body||JSON.stringify(post.structured_data||{}), url:routeFor(post) })));
 
   function postCard(post, number) {
     const kind=kindFor(post.post_type), label=kind.toUpperCase(), summary=summaryFor(post), href=routeFor(post);

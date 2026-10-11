@@ -94,20 +94,37 @@
   }).catch(()=>{});
 
   const searchInput = $('#site-search');
-  let searchTimer;
+  let searchTimer, searchPage = 1, searchSort = 'relevance';
+  const searchPageSize = 8;
+  const safeResultUrl = value => { try { const url = new URL(value, location.origin); return url.origin === location.origin ? `${url.pathname}${url.search}${url.hash}` : '/journal'; } catch { return '/journal'; } };
   async function runSearch() {
     if (!searchInput) return;
     const query = searchInput.value.trim().toLowerCase(), type = $('#search-type')?.value || 'all', topic = $('#search-topic')?.value || 'all';
     const root = $('.search-results'); if (!root) return;
     const items = await getIndex();
-    if (!query) { root.innerHTML = '<p class="muted">Search across articles, judgments, guides and research.</p>'; return; }
-    const found = items.filter(item => (type === 'all' || item.kind.toLowerCase() === type.toLowerCase()) && (topic === 'all' || item.topic.toLowerCase().includes(topic.toLowerCase())) && `${item.title} ${item.summary} ${item.topic}`.toLowerCase().includes(query));
+    if (!query) { searchPage = 1; root.innerHTML = '<p class="muted">Search across articles, judgments, guides and research.</p>'; return; }
+    const found = items.filter(item => (type === 'all' || item.kind.toLowerCase() === type.toLowerCase()) && (topic === 'all' || String(item.topic||'').toLowerCase().includes(topic.toLowerCase())) && `${item.title} ${item.summary} ${item.topic} ${item.searchText||''}`.toLowerCase().includes(query));
     if (!found.length) { root.innerHTML = '<p class="muted">No matching pieces yet. Try a broader word or browse the Journal and Casebook.</p>'; return; }
-    const groups = [...new Set(found.map(item => item.kind))];
-    root.innerHTML = groups.map(group => `<p class="result-group-title">${escapeHtml(group.toUpperCase())} · ${found.filter(item => item.kind === group).length}</p>${found.filter(item => item.kind === group).map(item => `<a class="search-result" href="${item.url}"><span>${escapeHtml(item.topic)}</span><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary)}</span></a>`).join('')}`).join('');
+    const score = item => {
+      const title=String(item.title||'').toLowerCase(), summary=String(item.summary||'').toLowerCase(), tags=String(item.topic||'').toLowerCase();
+      return (title===query?100:title.startsWith(query)?60:title.includes(query)?40:0)+(summary.includes(query)?10:0)+(tags.includes(query)?3:0);
+    };
+    found.sort((a,b)=>searchSort==='title-asc'?String(a.title).localeCompare(String(b.title)):searchSort==='title-desc'?String(b.title).localeCompare(String(a.title)):score(b)-score(a)||String(a.title).localeCompare(String(b.title)));
+    const pageCount=Math.ceil(found.length/searchPageSize);searchPage=Math.min(Math.max(1,searchPage),pageCount);
+    const start=(searchPage-1)*searchPageSize, pageItems=found.slice(start,start+searchPageSize), groups=[...new Set(pageItems.map(item=>item.kind))];
+    const toolbar=`<div class="search-result-toolbar"><span>${start+1}–${Math.min(start+searchPageSize,found.length)} of ${found.length} results</span><label>Sort <select data-search-sort aria-label="Sort search results"><option value="relevance" ${searchSort==='relevance'?'selected':''}>Best match</option><option value="title-asc" ${searchSort==='title-asc'?'selected':''}>Title A–Z</option><option value="title-desc" ${searchSort==='title-desc'?'selected':''}>Title Z–A</option></select></label></div>`;
+    const results=groups.map(group=>`<p class="result-group-title">${escapeHtml(group.toUpperCase())} · ${pageItems.filter(item=>item.kind===group).length}</p>${pageItems.filter(item=>item.kind===group).map(item=>`<a class="search-result" href="${escapeHtml(safeResultUrl(item.url))}"><span>${escapeHtml(item.topic||'')}</span><strong>${escapeHtml(item.title||'Untitled')}</strong><span>${escapeHtml(item.summary||'')}</span></a>`).join('')}`).join('');
+    const pager=pageCount>1?`<nav class="search-pagination" aria-label="Search result pages"><button type="button" data-search-page="${searchPage-1}" ${searchPage===1?'disabled':''}>Previous</button><span>Page ${searchPage} of ${pageCount}</span><button type="button" data-search-page="${searchPage+1}" ${searchPage===pageCount?'disabled':''}>Next</button></nav>`:'';
+    root.innerHTML=toolbar+results+pager;
   }
-  searchInput?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 100); });
-  $('#search-type')?.addEventListener('change', runSearch); $('#search-topic')?.addEventListener('change', runSearch);
+  searchInput?.addEventListener('input', () => { searchPage=1; clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 100); });
+  $('#search-type')?.addEventListener('change', () => { searchPage=1; runSearch(); }); $('#search-topic')?.addEventListener('change', () => { searchPage=1; runSearch(); });
+  $('.search-results')?.addEventListener('change',event=>{if(event.target.matches('[data-search-sort]')){searchSort=event.target.value;searchPage=1;runSearch();}});
+  $('.search-results')?.addEventListener('click',event=>{const button=event.target.closest('[data-search-page]');if(!button||button.disabled)return;searchPage=Number(button.dataset.searchPage)||1;runSearch();$('.search-dialog')?.querySelector('.search-result-toolbar')?.scrollIntoView({block:'nearest'});});
+
+  // Add the shared policy and editorial contact links to the footer on every page.
+  const footerNav=$('.site-footer nav');
+  if(footerNav){for(const [href,label] of [['/contact','Contact & corrections'],['/privacy','Privacy'],['/terms','Terms']])if(!footerNav.querySelector(`a[href="${href}"]`)){const link=document.createElement('a');link.href=href;link.textContent=label;footerNav.append(link);}}
 
   $$('.filter-button').forEach(button => button.addEventListener('click', () => {
     const group = button.closest('.archive-section') || document;
