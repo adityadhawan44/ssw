@@ -144,7 +144,11 @@
   async function renderPostPage() {
     const root=document.querySelector('#published-post');
     if(!root) return;
-    const slug=new URLSearchParams(location.search).get('slug');
+    // Vercel may serve this page through a rewrite while retaining the clean
+    // source URL. Accept both the explicit query slug and legacy section paths.
+    const params=new URLSearchParams(location.search);
+    const pathParts=location.pathname.split('/').filter(Boolean);
+    const slug=params.get('slug') || (pathParts.length===2 && ['journal','casebook','rights','perspective','research','the-brief'].includes(pathParts[0]) ? pathParts[1] : '');
     if(!slug) { root.innerHTML='<p class="muted">This publication could not be found.</p>'; return; }
     const posts=await livePostsPromise; let post=posts.find(item=>item.slug===slug);
     if(!post) {
