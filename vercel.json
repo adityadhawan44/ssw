@@ -1,6 +1,14 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/journal/:slug", "destination": "/post?slug=:slug" },
+    { "source": "/casebook/:slug", "destination": "/post?slug=:slug" },
+    { "source": "/rights/:slug", "destination": "/post?slug=:slug" },
+    { "source": "/perspective/:slug", "destination": "/post?slug=:slug" },
+    { "source": "/research/:slug", "destination": "/post?slug=:slug" },
+    { "source": "/the-brief/:slug", "destination": "/post?slug=:slug" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
